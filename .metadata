@@ -1,0 +1,14 @@
+version:
+  revision: manual
+  channel: stable
+
+project_type: app
+
+migration:
+  platforms:
+    - platform: root
+      create_revision: manual
+      base_revision: manual
+    - platform: android
+      create_revision: manual
+      base_revision: manual

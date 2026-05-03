@@ -1,0 +1,1629 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
+import 'judging_store.dart';
+import 'models.dart';
+import 'supabase_api.dart';
+
+const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+const levitPink = Color(0xffed2a72);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final supabaseApiKey = supabasePublishableKey.isNotEmpty ? supabasePublishableKey : supabaseAnonKey;
+  final store = JudgingStore(SupabaseApi(url: supabaseUrl, anonKey: supabaseApiKey));
+  await store.initialize();
+  runApp(JueceoTabletApp(store: store));
+}
+
+enum AppSection { home, admin, blocks, judging, scores, dictamen, excel }
+
+extension AppSectionMeta on AppSection {
+  String get label {
+    return switch (this) {
+      AppSection.home => 'Inicio',
+      AppSection.admin => 'Admin',
+      AppSection.blocks => 'Bloques',
+      AppSection.judging => 'Jueceo',
+      AppSection.scores => 'Ranking',
+      AppSection.dictamen => 'Dictamen',
+      AppSection.excel => 'Excel',
+    };
+  }
+
+  IconData get icon {
+    return switch (this) {
+      AppSection.home => Icons.home_outlined,
+      AppSection.admin => Icons.admin_panel_settings,
+      AppSection.blocks => Icons.list_alt,
+      AppSection.judging => Icons.fact_check,
+      AppSection.scores => Icons.bar_chart,
+      AppSection.dictamen => Icons.emoji_events,
+      AppSection.excel => Icons.upload_file,
+    };
+  }
+
+  bool get requiresAdmin {
+    return switch (this) {
+      AppSection.home || AppSection.judging => false,
+      AppSection.admin || AppSection.blocks || AppSection.scores || AppSection.dictamen || AppSection.excel => true,
+    };
+  }
+}
+
+class JueceoTabletApp extends StatelessWidget {
+  const JueceoTabletApp({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Jueceo Coreografias',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: levitPink, brightness: Brightness.light),
+        useMaterial3: true,
+        visualDensity: VisualDensity.standard,
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: levitPink, brightness: Brightness.dark),
+        useMaterial3: true,
+        visualDensity: VisualDensity.standard,
+      ),
+      home: AnimatedBuilder(
+        animation: store,
+        builder: (context, _) => TabletShell(store: store),
+      ),
+    );
+  }
+}
+
+class TabletShell extends StatefulWidget {
+  const TabletShell({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  State<TabletShell> createState() => _TabletShellState();
+}
+
+class _TabletShellState extends State<TabletShell> {
+  AppSection section = AppSection.home;
+
+  void navigate(AppSection target) {
+    setState(() => section = target);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final allowedSections = AppSection.values.where((item) => !item.requiresAdmin || store.isAdmin).toList();
+    final currentSection = allowedSections.contains(section) ? section : AppSection.home;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(store.selectedEvent?.name ?? 'Jueceo Coreografias'),
+        actions: [
+          if (store.isAdmin) ...[
+            EventSelectorButton(store: store),
+            const SizedBox(width: 8),
+            BlockSelectorButton(store: store),
+            const SizedBox(width: 8),
+          ],
+          JudgeSelectorButton(store: store),
+          const SizedBox(width: 8),
+          SyncChip(store: store),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Actualizar',
+            onPressed: () {
+              store.refreshEvents();
+            },
+            icon: const Icon(Icons.refresh),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: allowedSections.indexOf(currentSection),
+            onDestinationSelected: (index) => navigate(allowedSections[index]),
+            labelType: NavigationRailLabelType.all,
+            destinations: [
+              for (final item in allowedSections)
+                NavigationRailDestination(
+                  icon: SidebarIcon(section: item, selected: false),
+                  selectedIcon: SidebarIcon(section: item, selected: true),
+                  label: Text(item.label),
+                ),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(child: _pageFor(currentSection, store)),
+                if (store.isLoadingBackendData) BackendLoadingOverlay(message: store.syncMessage),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pageFor(AppSection activeSection, JudgingStore store) {
+    return switch (activeSection) {
+      AppSection.home => HomePage(store: store, onNavigate: navigate),
+      AppSection.admin => AdminPage(store: store, onNavigate: navigate),
+      AppSection.blocks => BlocksPage(store: store, onOpenRoutine: () => navigate(AppSection.judging)),
+      AppSection.judging => JudgingPage(store: store),
+      AppSection.scores => ScoresPage(store: store),
+      AppSection.dictamen => DictamenPage(store: store),
+      AppSection.excel => ExcelImportPage(store: store),
+    };
+  }
+}
+
+class SidebarIcon extends StatelessWidget {
+  const SidebarIcon({super.key, required this.section, required this.selected});
+
+  final AppSection section;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(section.icon, color: selected ? colorScheme.primary : null),
+        if (section == AppSection.admin)
+          Positioned(
+            right: -7,
+            bottom: -7,
+            child: CircleAvatar(
+              radius: 8,
+              backgroundColor: selected ? colorScheme.primary : colorScheme.primaryContainer,
+              child: Icon(Icons.settings, size: 10, color: selected ? colorScheme.onPrimary : colorScheme.primary),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class SyncChip extends StatelessWidget {
+  const SyncChip({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (store.syncState) {
+      SyncState.online => Colors.green,
+      SyncState.connecting || SyncState.syncing => Colors.blue,
+      SyncState.pending => Colors.orange,
+      SyncState.offline => Colors.red,
+      SyncState.localOnly => Colors.grey,
+    };
+    final label = store.pendingCount > 0 ? '${store.syncState.name} ${store.pendingCount}' : store.syncState.name;
+    return Chip(
+      avatar: Icon(Icons.cloud_queue, color: color, size: 18),
+      label: Text(label),
+      side: BorderSide(color: color.withOpacity(0.35)),
+      backgroundColor: color.withOpacity(0.10),
+    );
+  }
+}
+
+class EventSelectorButton extends StatelessWidget {
+  const EventSelectorButton({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<EventSummary>(
+      tooltip: 'Evento',
+      onSelected: (event) {
+        store.selectEvent(event);
+      },
+      itemBuilder: (context) => [
+        for (final event in store.events)
+          PopupMenuItem(
+            value: event,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(event.id == store.selectedEvent?.id ? Icons.check_circle : Icons.circle_outlined),
+              title: Text(event.name),
+              subtitle: Text(event.sourceName.isEmpty ? event.slug : event.sourceName),
+            ),
+          ),
+      ],
+      child: HeaderPill(
+        icon: Icons.event,
+        title: store.selectedEvent?.name ?? 'Evento',
+        subtitle: '${store.routines.length} coreografias',
+      ),
+    );
+  }
+}
+
+class BlockSelectorButton extends StatelessWidget {
+  const BlockSelectorButton({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<DanceBlock>(
+      tooltip: 'Bloque',
+      onSelected: store.selectBlock,
+      itemBuilder: (context) => [
+        for (final block in store.blocks)
+          PopupMenuItem(
+            value: block,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(block.blockId == store.selectedBlock?.blockId ? Icons.check_circle : Icons.circle_outlined),
+              title: Text(block.name),
+              subtitle: Text('${routineCountForBlock(store, block)} coreografias'),
+            ),
+          ),
+      ],
+      child: HeaderPill(
+        icon: Icons.view_agenda,
+        title: store.selectedBlock?.name ?? 'Bloque',
+        subtitle: '${store.visibleRoutines.length} en vista',
+      ),
+    );
+  }
+}
+
+class JudgeSelectorButton extends StatelessWidget {
+  const JudgeSelectorButton({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Juez',
+      onSelected: store.selectJudge,
+      itemBuilder: (context) => [
+        for (final judge in store.judges)
+          PopupMenuItem(
+            value: judge,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(judge == store.selectedJudge ? Icons.check_circle : Icons.circle_outlined),
+              title: Text(judge),
+              subtitle: Text(store.roleTitleFor(judge)),
+            ),
+          ),
+      ],
+      child: HeaderPill(
+        icon: Icons.person,
+        title: store.selectedJudge.isEmpty ? 'Juez' : store.selectedJudge,
+        subtitle: store.selectedJudge.isEmpty ? 'Seleccionar' : store.roleTitleFor(store.selectedJudge),
+      ),
+    );
+  }
+}
+
+class HeaderPill extends StatelessWidget {
+  const HeaderPill({super.key, required this.icon, required this.title, required this.subtitle});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceVariant.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class BackendLoadingOverlay extends StatelessWidget {
+  const BackendLoadingOverlay({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: colorScheme.surface.withOpacity(0.82),
+      child: Center(
+        child: Container(
+          width: 360,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: colorScheme.outlineVariant),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 28, offset: const Offset(0, 14))],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 18),
+              Text('Cargando datos', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              Text(message, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key, required this.store, required this.onNavigate});
+
+  final JudgingStore store;
+  final ValueChanged<AppSection> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    final routines = sortedRoutines(store.visibleRoutines);
+    final pending = routines.where((routine) => store.resultFor(routine).total == 0).take(3).toList();
+    final preview = pending.isEmpty ? routines.take(3).toList() : pending;
+    final completed = store.rankings.where((result) => result.total > 0).length;
+    final nextRoutine = preview.isNotEmpty ? preview.first : store.selectedRoutine;
+    final average = store.rankings.where((result) => result.total > 0).toList();
+    final averageScore = average.isEmpty ? 0.0 : average.fold<double>(0, (sum, result) => sum + result.total) / average.length;
+    final syncPercent = store.pendingCount == 0 ? 100 : (100 - store.pendingCount * 8).clamp(0, 100);
+
+    return ListView(
+      padding: const EdgeInsets.all(28),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Buenos dias,', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+                  Text(
+                    store.selectedJudge.isEmpty ? 'JUEZ' : store.selectedJudge,
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w900, color: levitPink),
+                  ),
+                  Text('Estas lista para calificar.\nQue comience el flow!', style: Theme.of(context).textTheme.titleMedium),
+                ],
+              ),
+            ),
+            Icon(Icons.self_improvement, size: 150, color: levitPink.withOpacity(0.55)),
+          ],
+        ),
+        const SizedBox(height: 28),
+        GridView.count(
+          crossAxisCount: 4,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 2.15,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            MetricTile(icon: Icons.calendar_month, value: '$completed', label: 'Calificadas', detail: '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
+            MetricTile(icon: Icons.timer, value: nextRoutine?.time.isNotEmpty == true ? nextRoutine!.time : '00:42', label: 'Proxima rutina', detail: nextRoutine == null ? 'Sin rutina' : '#${nextRoutine.id} ${nextRoutine.name}'),
+            MetricTile(icon: Icons.star_border, value: averageScore.toStringAsFixed(2), label: 'Promedio actual', detail: 'Promedio general'),
+            MetricTile(icon: Icons.cloud_done, value: '$syncPercent%', label: 'Sincronizacion', detail: store.pendingCount == 0 ? 'Todo al dia' : '${store.pendingCount} pendiente'),
+          ],
+        ),
+        const SizedBox(height: 24),
+        SectionHeader(
+          title: 'Proximas coreografias',
+          subtitle: 'Pendientes en orden de salida',
+          action: store.isAdmin
+              ? TextButton.icon(
+                  onPressed: () => onNavigate(AppSection.blocks),
+                  icon: const Icon(Icons.visibility),
+                  label: const Text('Ver todas'),
+                )
+              : null,
+        ),
+        const SizedBox(height: 10),
+        for (final routine in preview)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: RoutineListTile(
+              routine: routine,
+              selected: routine.id == nextRoutine?.id,
+              trailing: FilledButton.tonalIcon(
+                onPressed: () => store.selectRoutine(routine.id),
+                icon: const Icon(Icons.visibility),
+                label: const Text('Ver detalles'),
+              ),
+            ),
+          ),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: nextRoutine == null ? null : () => onNavigate(AppSection.judging),
+                icon: const Icon(Icons.play_arrow),
+                label: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('Entrar al jueceo'),
+                ),
+              ),
+            ),
+            if (store.isAdmin) ...[
+              const SizedBox(width: 14),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => onNavigate(AppSection.admin),
+                  icon: const Icon(Icons.admin_panel_settings),
+                  label: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text('Panel admin'),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class AdminPage extends StatefulWidget {
+  const AdminPage({super.key, required this.store, required this.onNavigate});
+
+  final JudgingStore store;
+  final ValueChanged<AppSection> onNavigate;
+
+  @override
+  State<AdminPage> createState() => _AdminPageState();
+}
+
+class _AdminPageState extends State<AdminPage> {
+  String selectedJudgeForEdit = '';
+  String selectedRoutineIdForEdit = '';
+  String query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    if (!store.editableJudges.contains(selectedJudgeForEdit)) {
+      selectedJudgeForEdit = store.adminScoringJudge ?? (store.editableJudges.isEmpty ? '' : store.editableJudges.first);
+    }
+    final routines = sortedRoutines(store.visibleRoutines);
+    if (!routines.any((routine) => routine.id == selectedRoutineIdForEdit)) {
+      selectedRoutineIdForEdit = store.selectedRoutine?.id ?? (routines.isEmpty ? '' : routines.first.id);
+    }
+    final filtered = routines.where((routine) {
+      final haystack = '${routine.id} ${routine.name} ${routine.academy} ${routine.genre} ${routine.division} ${routine.category}'.toUpperCase();
+      return haystack.contains(query.toUpperCase());
+    }).toList();
+    final selectedRoutine = firstOrNull(routines.where((routine) => routine.id == selectedRoutineIdForEdit));
+    final completed = store.rankings.where((result) => result.total > 0).length;
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Panel admin', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900)),
+                  Text('${store.selectedEvent?.name ?? store.appData?.sourceName ?? 'Evento'} - ${store.selectedBlock?.name ?? 'Bloque'}'),
+                ],
+              ),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                store.refreshEvents();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Actualizar'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        GridView.count(
+          crossAxisCount: 4,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 2.15,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            MetricTile(icon: Icons.view_agenda, value: '${store.blocks.length}', label: 'Bloques', detail: '${store.visibleRoutines.length} en vista'),
+            MetricTile(icon: Icons.self_improvement, value: '${store.routines.length}', label: 'Coreografias', detail: '$completed calificadas'),
+            MetricTile(icon: Icons.groups, value: '${store.editableJudges.length}', label: 'Jueces', detail: 'ATI administra'),
+            MetricTile(icon: Icons.cloud_upload, value: '${store.pendingCount}', label: 'Pendientes', detail: store.syncState.name),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            ActionChip(
+              avatar: const Icon(Icons.upload_file),
+              label: const Text('Importar Excel'),
+              onPressed: () => widget.onNavigate(AppSection.excel),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.bar_chart),
+              label: const Text('Ranking'),
+              onPressed: () => widget.onNavigate(AppSection.scores),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.emoji_events),
+              label: const Text('Dictamen'),
+              onPressed: () => widget.onNavigate(AppSection.dictamen),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.picture_as_pdf),
+              label: const Text('Exportar PDF'),
+              onPressed: () {
+                exportResultsPdf(store);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        SectionHeader(title: 'Bloques', subtitle: 'Selecciona el bloque activo para revisar o editar'),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final block in store.blocks)
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: ChoiceChip(
+                    selected: block.blockId == store.selectedBlock?.blockId,
+                    label: Text('${block.name} · ${routineCountForBlock(store, block)}'),
+                    onSelected: (_) => store.selectBlock(block),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 340,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Editar como juez', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: selectedJudgeForEdit.isEmpty ? null : selectedJudgeForEdit,
+                        decoration: const InputDecoration(labelText: 'Juez'),
+                        items: [for (final judge in store.editableJudges) DropdownMenuItem(value: judge, child: Text(judge))],
+                        onChanged: (value) => setState(() => selectedJudgeForEdit = value ?? ''),
+                      ),
+                      const SizedBox(height: 14),
+                      if (selectedRoutine != null)
+                        SelectedRoutineSummary(
+                          routine: selectedRoutine,
+                          judge: selectedJudgeForEdit,
+                          total: judgeTotalFor(store, selectedRoutine, selectedJudgeForEdit),
+                          maxScore: store.templateFor(selectedRoutine).maxScore,
+                        ),
+                      const SizedBox(height: 14),
+                      FilledButton.icon(
+                        onPressed: selectedRoutine == null || selectedJudgeForEdit.isEmpty
+                            ? null
+                            : () {
+                                store.beginAdminScoring(judge: selectedJudgeForEdit, routine: selectedRoutine);
+                                widget.onNavigate(AppSection.judging);
+                              },
+                        icon: const Icon(Icons.edit_note),
+                        label: const Text('Abrir hoja de jueceo'),
+                      ),
+                      if (store.isAdminEditingAsJudge) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: store.clearAdminScoringOverride,
+                          icon: const Icon(Icons.close),
+                          label: const Text('Salir de edicion'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    children: [
+                      TextField(
+                        decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Buscar coreografia'),
+                        onChanged: (value) => setState(() => query = value),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final routine in filtered)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: RoutineListTile(
+                            routine: routine,
+                            selected: routine.id == selectedRoutineIdForEdit,
+                            trailing: Text('${judgeTotalFor(store, routine, selectedJudgeForEdit).toStringAsFixed(1)} pts'),
+                            onTap: () => setState(() => selectedRoutineIdForEdit = routine.id),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class BlocksPage extends StatefulWidget {
+  const BlocksPage({super.key, required this.store, required this.onOpenRoutine});
+
+  final JudgingStore store;
+  final VoidCallback onOpenRoutine;
+
+  @override
+  State<BlocksPage> createState() => _BlocksPageState();
+}
+
+class _BlocksPageState extends State<BlocksPage> {
+  String query = '';
+  RoutineFilter filter = RoutineFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final filtered = sortedRoutines(store.visibleRoutines).where((routine) {
+      final result = store.resultFor(routine);
+      final matchesFilter = switch (filter) {
+        RoutineFilter.all => true,
+        RoutineFilter.pending => result.total == 0,
+        RoutineFilter.scored => result.total > 0,
+      };
+      final haystack = '${routine.id} ${routine.name} ${routine.academy} ${routine.genre} ${routine.category}'.toUpperCase();
+      return matchesFilter && haystack.contains(query.toUpperCase());
+    }).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Buscar coreografia, academia o genero'),
+                  onChanged: (value) => setState(() => query = value),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SegmentedButton<RoutineFilter>(
+                segments: const [
+                  ButtonSegment(value: RoutineFilter.all, label: Text('Todas')),
+                  ButtonSegment(value: RoutineFilter.pending, label: Text('Pendientes')),
+                  ButtonSegment(value: RoutineFilter.scored, label: Text('Calificadas')),
+                ],
+                selected: {filter},
+                onSelectionChanged: (value) => setState(() => filter = value.first),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SectionHeader(
+                title: 'Coreografias del ${store.selectedBlock?.name.toLowerCase() ?? 'bloque'}',
+                subtitle: '${filtered.length} resultados',
+              ),
+              const SizedBox(height: 12),
+              for (final routine in filtered)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: RoutineListTile(
+                    routine: routine,
+                    selected: routine.id == store.selectedRoutineId,
+                    trailing: FilledButton.tonalIcon(
+                      onPressed: () {
+                        store.selectRoutine(routine.id);
+                        widget.onOpenRoutine();
+                      },
+                      icon: const Icon(Icons.fact_check),
+                      label: const Text('Juecear'),
+                    ),
+                    onTap: () => store.selectRoutine(routine.id),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum RoutineFilter { all, pending, scored }
+
+class JudgingPage extends StatefulWidget {
+  const JudgingPage({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  State<JudgingPage> createState() => _JudgingPageState();
+}
+
+class _JudgingPageState extends State<JudgingPage> {
+  final Map<int, TextEditingController> controllers = {};
+  final feedbackController = TextEditingController();
+  String? loadedRoutineId;
+  String? loadedJudge;
+  String? errorMessage;
+
+  @override
+  void dispose() {
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    feedbackController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final routine = store.selectedRoutine;
+    if (routine == null) {
+      return const EmptyState(icon: Icons.inbox, title: 'Sin coreografias', message: 'Carga un evento para empezar.');
+    }
+    final scoringJudge = store.scoringJudge;
+    final template = store.templateFor(routine);
+    _loadDraftIfNeeded(store, routine, scoringJudge, template);
+    final subtotal = template.criteria.fold<double>(0, (sum, criterion) {
+      return sum + (double.tryParse(controllers[criterion.id]?.text.replaceAll(',', '.') ?? '') ?? 0);
+    });
+    final maxTotal = template.maxScore > 0 ? template.maxScore : template.criteria.fold<double>(0, (sum, criterion) => sum + criterion.maxScore);
+    final routines = sortedRoutines(store.visibleRoutines);
+    final currentIndex = routines.indexWhere((item) => item.id == routine.id);
+    final nextRoutine = currentIndex >= 0 && currentIndex + 1 < routines.length ? routines[currentIndex + 1] : null;
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 320,
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              if (store.isAdminEditingAsJudge)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Chip(
+                    avatar: const Icon(Icons.manage_accounts),
+                    label: Text('Editando como $scoringJudge'),
+                  ),
+                ),
+              DropdownButtonFormField<String>(
+                value: store.judges.contains(store.selectedJudge) ? store.selectedJudge : null,
+                decoration: const InputDecoration(labelText: 'Usuario'),
+                items: [for (final judge in store.judges) DropdownMenuItem(value: judge, child: Text('${store.roleTitleFor(judge)} · $judge'))],
+                onChanged: (value) {
+                  if (value != null) store.selectJudge(value);
+                },
+              ),
+              const SizedBox(height: 12),
+              for (final item in routines)
+                ListTile(
+                  dense: true,
+                  selected: item.id == routine.id,
+                  title: Text('#${item.id} ${item.name}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text('${item.genre} · ${item.division} · ${item.category}'),
+                  trailing: store.resultFor(item).total > 0 ? const Icon(Icons.check_circle, color: Colors.green) : null,
+                  onTap: () {
+                    store.selectRoutine(item.id);
+                  },
+                ),
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('#${routine.id} ${routine.name}', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        Text('${routine.academy} · ${routine.genre} · ${routine.division} · ${routine.category}'),
+                      ],
+                    ),
+                  ),
+                  Text('${currentIndex + 1} / ${routines.length}', style: Theme.of(context).textTheme.titleLarge),
+                ],
+              ),
+              const SizedBox(height: 20),
+              for (final criterion in template.criteria)
+                Card(
+                  child: ListTile(
+                    title: Text('${criterion.id}. ${criterion.label}'),
+                    subtitle: Text('${criterion.section} · 0 a ${criterion.maxScore.toStringAsFixed(1)} puntos'),
+                    trailing: SizedBox(
+                      width: 112,
+                      child: TextField(
+                        controller: controllers[criterion.id],
+                        textAlign: TextAlign.center,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(suffixText: '/${criterion.maxScore.toStringAsFixed(0)}'),
+                        onChanged: (_) => setState(() => errorMessage = null),
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: feedbackController,
+                minLines: 4,
+                maxLines: 6,
+                decoration: const InputDecoration(labelText: 'Feedback', alignLabelWithHint: true, counterText: ''),
+                maxLength: 300,
+                onChanged: (value) {
+                  store.setFeedback(routine, value, judge: scoringJudge);
+                },
+              ),
+              const SizedBox(height: 14),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Puntaje total', style: Theme.of(context).textTheme.labelLarge),
+                            Text('${subtotal.toStringAsFixed(1)} / ${maxTotal.toStringAsFixed(1)}', style: Theme.of(context).textTheme.displaySmall?.copyWith(color: levitPink, fontWeight: FontWeight.w900)),
+                            if (errorMessage != null) Text(errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                          ],
+                        ),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () {
+                          _save(routine, template, advance: false);
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('Guardar'),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: nextRoutine == null
+                            ? null
+                            : () {
+                                _save(routine, template, advance: true);
+                              },
+                        icon: const Icon(Icons.arrow_forward),
+                        label: const Text('Guardar y siguiente'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _loadDraftIfNeeded(JudgingStore store, Routine routine, String judge, JudgingTemplate template) {
+    if (loadedRoutineId == routine.id && loadedJudge == judge) return;
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    controllers.clear();
+    for (final criterion in template.criteria) {
+      final saved = store.scoreFor(routine, judge, criterion);
+      controllers[criterion.id] = TextEditingController(text: saved > 0 ? saved.toStringAsFixed(1) : '');
+    }
+    feedbackController.text = store.feedback[store.feedbackKey(routine.id, judge)] ?? '';
+    loadedRoutineId = routine.id;
+    loadedJudge = judge;
+    errorMessage = null;
+  }
+
+  Future<void> _save(Routine routine, JudgingTemplate template, {required bool advance}) async {
+    final values = <int, double>{};
+    for (final criterion in template.criteria) {
+      final value = double.tryParse(controllers[criterion.id]?.text.replaceAll(',', '.') ?? '');
+      if (value == null || value < 0 || value > criterion.maxScore) {
+        setState(() {
+          errorMessage = 'Completa todas las notas entre 0 y ${criterion.maxScore.toStringAsFixed(1)}.';
+        });
+        return;
+      }
+      values[criterion.id] = value;
+    }
+    await widget.store.submitScores(routine, values);
+    if (advance) {
+      final routines = sortedRoutines(widget.store.visibleRoutines);
+      final currentIndex = routines.indexWhere((item) => item.id == routine.id);
+      if (currentIndex >= 0 && currentIndex + 1 < routines.length) {
+        widget.store.selectRoutine(routines[currentIndex + 1].id);
+      }
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Calificaciones guardadas.')));
+    }
+  }
+}
+
+class ScoresPage extends StatelessWidget {
+  const ScoresPage({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final results = store.rankings;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text('${results.length} resultados', style: Theme.of(context).textTheme.titleLarge),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: () {
+                  exportResultsPdf(store);
+                },
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text('PDF'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: [
+                const DataColumn(label: Text('Pos')),
+                const DataColumn(label: Text('#')),
+                const DataColumn(label: Text('Coreografia')),
+                const DataColumn(label: Text('Academia')),
+                const DataColumn(label: Text('Genero')),
+                for (final judge in store.judges) DataColumn(label: Text(judge)),
+                const DataColumn(label: Text('Total')),
+              ],
+              rows: [
+                for (final indexed in results.indexed)
+                  DataRow(cells: [
+                    DataCell(Text(indexed.$2.total > 0 ? '${indexed.$1 + 1}' : '-')),
+                    DataCell(Text(indexed.$2.routine.id)),
+                    DataCell(SizedBox(width: 220, child: Text(indexed.$2.routine.name, overflow: TextOverflow.ellipsis))),
+                    DataCell(SizedBox(width: 220, child: Text(indexed.$2.routine.academy, overflow: TextOverflow.ellipsis))),
+                    DataCell(Text(indexed.$2.routine.genre)),
+                    for (final judge in store.judges) DataCell(Text((indexed.$2.judgeTotals[judge] ?? 0).toStringAsFixed(1))),
+                    DataCell(Text(indexed.$2.total > 0 ? indexed.$2.total.toStringAsFixed(2) : '-')),
+                  ]),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class DictamenPage extends StatefulWidget {
+  const DictamenPage({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  State<DictamenPage> createState() => _DictamenPageState();
+}
+
+class _DictamenPageState extends State<DictamenPage> {
+  String? selectedGroupKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = dictamenGroups(widget.store.rankings);
+    if (groups.isEmpty) {
+      return const EmptyState(icon: Icons.emoji_events_outlined, title: 'Sin dictamen', message: 'Todavia no hay coreografias para mostrar.');
+    }
+    selectedGroupKey = groups.containsKey(selectedGroupKey) ? selectedGroupKey : groups.keys.first;
+    final selectedResults = groups[selectedGroupKey] ?? const <RoutineResult>[];
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 360,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text('Dictamen final', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 12),
+              for (final entry in groups.entries)
+                Card(
+                  color: entry.key == selectedGroupKey ? Theme.of(context).colorScheme.primaryContainer : null,
+                  child: ListTile(
+                    title: Text(entry.key, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    subtitle: Text('${entry.value.length} coreografias'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => setState(() => selectedGroupKey = entry.key),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(28),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(selectedGroupKey ?? '', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+                        const Text('Resultados oficiales'),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () {
+                      exportResultsPdf(
+                        widget.store,
+                        results: selectedResults,
+                        title: 'Dictamen final - ${selectedGroupKey ?? ''}',
+                        filename: 'dictamen-${stableRemoteId(selectedGroupKey ?? 'grupo')}.pdf',
+                      );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Descargar PDF'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: PodiumTile(place: 2, result: selectedResults.length > 1 ? selectedResults[1] : null)),
+                  const SizedBox(width: 16),
+                  Expanded(child: PodiumTile(place: 1, result: selectedResults.isNotEmpty ? selectedResults[0] : null, featured: true)),
+                  const SizedBox(width: 16),
+                  Expanded(child: PodiumTile(place: 3, result: selectedResults.length > 2 ? selectedResults[2] : null)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              for (final indexed in selectedResults.indexed)
+                ListTile(
+                  leading: CircleAvatar(child: Text('${indexed.$1 + 1}')),
+                  title: Text('#${indexed.$2.routine.id} ${indexed.$2.routine.name}'),
+                  subtitle: Text(indexed.$2.routine.academy),
+                  trailing: Text(indexed.$2.total > 0 ? indexed.$2.total.toStringAsFixed(2) : '-'),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ExcelImportPage extends StatefulWidget {
+  const ExcelImportPage({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  State<ExcelImportPage> createState() => _ExcelImportPageState();
+}
+
+class _ExcelImportPageState extends State<ExcelImportPage> {
+  late final TextEditingController eventNameController;
+  late final TextEditingController eventSlugController;
+  PlatformFile? selectedFile;
+  ExcelImportSummary? lastUpload;
+  bool uploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final event = widget.store.selectedEvent;
+    eventNameController = TextEditingController(text: event?.name ?? 'Competencia Levitate');
+    eventSlugController = TextEditingController(text: event?.slug ?? stableRemoteId(event?.name ?? 'competencia-levitate'));
+  }
+
+  @override
+  void dispose() {
+    eventNameController.dispose();
+    eventSlugController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text('Subir Excel', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 6),
+        const Text('El archivo queda pendiente en Supabase para procesarse con el mismo contrato de datos.'),
+        const SizedBox(height: 24),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              children: [
+                TextField(
+                  controller: eventNameController,
+                  decoration: const InputDecoration(labelText: 'Nombre del evento'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: eventSlugController,
+                  decoration: const InputDecoration(labelText: 'Slug del evento'),
+                ),
+                const SizedBox(height: 18),
+                ListTile(
+                  leading: const Icon(Icons.table_chart),
+                  title: Text(selectedFile?.name ?? 'Seleccionar Excel'),
+                  subtitle: Text(selectedFile == null ? 'Formatos .xlsx o .xls' : '${selectedFile!.size} bytes'),
+                  trailing: OutlinedButton.icon(
+                    onPressed: () {
+                      _pickFile();
+                    },
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Elegir'),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: uploading || selectedFile == null
+                      ? null
+                      : () {
+                          _upload();
+                        },
+                  icon: uploading ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cloud_upload),
+                  label: Text(uploading ? 'Subiendo' : 'Subir Excel'),
+                ),
+                if (lastUpload != null) ...[
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(Icons.check_circle, color: Colors.green),
+                    title: Text(lastUpload!.fileName),
+                    subtitle: Text('${lastUpload!.eventName} · ${lastUpload!.fileSize} bytes'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['xlsx', 'xls'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    setState(() => selectedFile = result.files.single);
+  }
+
+  Future<void> _upload() async {
+    final file = selectedFile;
+    final bytes = file?.bytes;
+    if (file == null || bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo leer el archivo seleccionado.')));
+      return;
+    }
+    setState(() => uploading = true);
+    try {
+      final summary = await widget.store.uploadExcelImport(
+        fileName: file.name,
+        bytes: bytes,
+        eventName: eventNameController.text,
+        eventSlug: eventSlugController.text,
+      );
+      setState(() => lastUpload = summary);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Excel subido a Supabase.')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => uploading = false);
+    }
+  }
+}
+
+class MetricTile extends StatelessWidget {
+  const MetricTile({super.key, required this.icon, required this.value, required this.label, required this.detail});
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: colorScheme.primaryContainer,
+                  foregroundColor: colorScheme.primary,
+                  child: Icon(icon),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({super.key, required this.title, required this.subtitle, this.action});
+
+  final String title;
+  final String subtitle;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+              Text(subtitle, style: Theme.of(context).textTheme.labelLarge),
+            ],
+          ),
+        ),
+        if (action != null) action!,
+      ],
+    );
+  }
+}
+
+class RoutineListTile extends StatelessWidget {
+  const RoutineListTile({super.key, required this.routine, required this.selected, this.trailing, this.onTap});
+
+  final Routine routine;
+  final bool selected;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      color: selected ? colorScheme.primaryContainer.withOpacity(0.60) : null,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 62,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text('#${routine.id}', style: TextStyle(fontWeight: FontWeight.w900, color: colorScheme.primary)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(routine.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(routine.academy, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        Tag(routine.division),
+                        Tag(routine.category),
+                        Tag(routine.genre),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class Tag extends StatelessWidget {
+  const Tag(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text(text.trim().isEmpty ? 'SIN DATO' : text.toUpperCase()),
+      visualDensity: VisualDensity.compact,
+      labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900),
+    );
+  }
+}
+
+class SelectedRoutineSummary extends StatelessWidget {
+  const SelectedRoutineSummary({super.key, required this.routine, required this.judge, required this.total, required this.maxScore});
+
+  final Routine routine;
+  final String judge;
+  final double total;
+  final double maxScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedMax = maxScore > 0 ? maxScore : 25;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('#${routine.id} ${routine.name}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
+            Text(routine.academy, maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 10),
+            Wrap(spacing: 6, children: [Tag(routine.division), Tag(routine.category), Tag(routine.genre)]),
+            const Divider(),
+            Row(
+              children: [
+                Expanded(child: Text(judge.isEmpty ? 'Juez' : judge)),
+                Text('${total.toStringAsFixed(1)} / ${resolvedMax.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w900)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PodiumTile extends StatelessWidget {
+  const PodiumTile({super.key, required this.place, required this.result, this.featured = false});
+
+  final int place;
+  final RoutineResult? result;
+  final bool featured;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      color: featured ? levitPink : colorScheme.surfaceVariant,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: featured ? 36 : 24),
+        child: Column(
+          children: [
+            CircleAvatar(
+              backgroundColor: featured ? Colors.amber : colorScheme.primaryContainer,
+              child: Text('$place', style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              result?.routine.academy ?? '-',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.w900, color: featured ? Colors.white : null),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              result == null || result!.total == 0 ? '-' : result!.total.toStringAsFixed(1),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, color: featured ? Colors.white : null),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EmptyState extends StatelessWidget {
+  const EmptyState({super.key, required this.icon, required this.title, required this.message});
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 54, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 12),
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          Text(message, textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+List<Routine> sortedRoutines(List<Routine> routines) {
+  final copy = [...routines];
+  copy.sort((left, right) {
+    final leftNumber = int.tryParse(left.id) ?? 1 << 30;
+    final rightNumber = int.tryParse(right.id) ?? 1 << 30;
+    if (leftNumber == rightNumber) return left.id.compareTo(right.id);
+    return leftNumber.compareTo(rightNumber);
+  });
+  return copy;
+}
+
+int percentage(int value, int total) {
+  if (total <= 0) return 0;
+  return (value / total * 100).round();
+}
+
+int routineCountForBlock(JudgingStore store, DanceBlock block) {
+  final routineIds = block.routines.map((routine) => routine.id).toSet();
+  return store.routines.where((routine) => routineIds.contains(routine.id) || routine.blockId == block.blockId || routine.block == block.name).length;
+}
+
+double judgeTotalFor(JudgingStore store, Routine routine, String judge) {
+  if (judge.isEmpty) return 0;
+  return store.templateFor(routine).criteria.fold<double>(0, (sum, criterion) => sum + store.scoreFor(routine, judge, criterion));
+}
+
+Map<String, List<RoutineResult>> dictamenGroups(List<RoutineResult> results) {
+  final groups = <String, List<RoutineResult>>{};
+  for (final result in results) {
+    final key = '${result.routine.genre} - ${result.routine.division} - ${result.routine.category}';
+    groups.putIfAbsent(key, () => []).add(result);
+  }
+  for (final values in groups.values) {
+    values.sort((left, right) {
+      final totalCompare = right.total.compareTo(left.total);
+      if (totalCompare != 0) return totalCompare;
+      return (int.tryParse(left.routine.id) ?? 0).compareTo(int.tryParse(right.routine.id) ?? 0);
+    });
+  }
+  return groups;
+}
+
+T? firstOrNull<T>(Iterable<T> items) {
+  for (final item in items) {
+    return item;
+  }
+  return null;
+}
+
+Future<void> exportResultsPdf(
+  JudgingStore store, {
+  List<RoutineResult>? results,
+  String title = 'Calificaciones y Dictamen Final',
+  String filename = 'calificaciones-dictamen-final.pdf',
+}) async {
+  final document = pw.Document();
+  final exportResults = results ?? store.rankings;
+  document.addPage(
+    pw.MultiPage(
+      build: (context) => [
+        pw.Text(title, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Fuente: ${store.appData?.sourceName ?? store.selectedEvent?.name ?? ''}'),
+        pw.SizedBox(height: 18),
+        pw.TableHelper.fromTextArray(
+          headers: ['Pos', '#', 'Coreografia', 'Academia', 'Categoria', 'Total'],
+          data: [
+            for (final indexed in exportResults.indexed)
+              [
+                indexed.$2.total > 0 ? '${indexed.$1 + 1}' : '-',
+                indexed.$2.routine.id,
+                indexed.$2.routine.name,
+                indexed.$2.routine.academy,
+                '${indexed.$2.routine.genre} ${indexed.$2.routine.division} ${indexed.$2.routine.category}',
+                indexed.$2.total > 0 ? indexed.$2.total.toStringAsFixed(2) : '-',
+              ],
+          ],
+        ),
+      ],
+    ),
+  );
+  await Printing.sharePdf(bytes: await document.save(), filename: filename);
+}
