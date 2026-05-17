@@ -45,6 +45,29 @@ class AppData {
 
 enum UserRole { judge, admin }
 
+enum FavoriteCategory {
+  costume,
+  choreography,
+  music;
+
+  String get id => name;
+
+  String get title {
+    return switch (this) {
+      FavoriteCategory.costume => 'Vestuario favorito',
+      FavoriteCategory.choreography => 'Coreografia favorita',
+      FavoriteCategory.music => 'Musica favorita',
+    };
+  }
+
+  static FavoriteCategory? fromId(String value) {
+    for (final category in FavoriteCategory.values) {
+      if (category.id == value) return category;
+    }
+    return null;
+  }
+}
+
 class JudgeProfile {
   JudgeProfile({required this.judgeId, required this.name, required this.role});
 
@@ -55,9 +78,12 @@ class JudgeProfile {
   factory JudgeProfile.fromJson(Map<String, dynamic> json) {
     final rawRole = json['role'] as String? ?? '';
     return JudgeProfile(
-      judgeId: json['judge_id'] as String? ?? stableRemoteId(json['name'] as String? ?? ''),
+      judgeId: json['judge_id'] as String? ??
+          stableRemoteId(json['name'] as String? ?? ''),
       name: json['name'] as String? ?? '',
-      role: rawRole == 'admin' || (json['judge_id'] as String? ?? '') == 'ati' ? UserRole.admin : UserRole.judge,
+      role: rawRole == 'admin' || (json['judge_id'] as String? ?? '') == 'ati'
+          ? UserRole.admin
+          : UserRole.judge,
     );
   }
 }
@@ -123,7 +149,8 @@ class Routine {
         category: json['category'] as String? ?? '',
         choreographer: json['choreographer'] as String? ?? '',
         state: json['state'] as String? ?? '',
-        time: json['scheduled_time'] as String? ?? json['time'] as String? ?? '',
+        time:
+            json['scheduled_time'] as String? ?? json['time'] as String? ?? '',
         duration: json['duration'] as String? ?? '',
       );
 }
@@ -161,7 +188,8 @@ class Criterion {
         id: json['criterion_id'] as int? ?? json['id'] as int? ?? 0,
         section: json['section'] as String? ?? '',
         label: json['label'] as String? ?? '',
-        maxScore: (json['max_score'] as num? ?? json['maxScore'] as num? ?? 0).toDouble(),
+        maxScore: (json['max_score'] as num? ?? json['maxScore'] as num? ?? 0)
+            .toDouble(),
       );
 }
 
@@ -187,7 +215,8 @@ class RemoteScore {
 }
 
 class RemoteFeedback {
-  RemoteFeedback({required this.routineId, required this.judgeId, required this.body});
+  RemoteFeedback(
+      {required this.routineId, required this.judgeId, required this.body});
 
   final String routineId;
   final String judgeId;
@@ -198,6 +227,47 @@ class RemoteFeedback {
         judgeId: json['judge_id'] as String? ?? '',
         body: json['body'] as String? ?? '',
       );
+}
+
+class RemoteFavorite {
+  RemoteFavorite({
+    required this.eventId,
+    required this.blockId,
+    required this.routineId,
+    required this.judgeId,
+    required this.category,
+  });
+
+  final String eventId;
+  final String blockId;
+  final String routineId;
+  final String judgeId;
+  final FavoriteCategory category;
+
+  factory RemoteFavorite.fromJson(Map<String, dynamic> json) => RemoteFavorite(
+        eventId: json['event_id'] as String? ?? '',
+        blockId: json['block_id'] as String? ?? '',
+        routineId: json['routine_id'] as String? ?? '',
+        judgeId: json['judge_id'] as String? ?? '',
+        category: FavoriteCategory.fromId(json['category'] as String? ?? '') ??
+            FavoriteCategory.costume,
+      );
+}
+
+class FavoriteSelectionSummary {
+  FavoriteSelectionSummary({
+    required this.id,
+    required this.category,
+    required this.judge,
+    required this.blockName,
+    required this.routine,
+  });
+
+  final String id;
+  final FavoriteCategory category;
+  final String judge;
+  final String blockName;
+  final Routine routine;
 }
 
 class RoutineResult {
@@ -224,7 +294,8 @@ String normalizedKey(String value) {
     'ü': 'u',
     'ñ': 'n',
   };
-  final folded = value.toLowerCase().split('').map((char) => accents[char] ?? char).join();
+  final folded =
+      value.toLowerCase().split('').map((char) => accents[char] ?? char).join();
   return folded.trim().toUpperCase();
 }
 

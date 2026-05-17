@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,18 +39,29 @@ class JudgingStore extends ChangeNotifier {
   String syncMessage = '';
   final Map<String, double> scores = {};
   final Map<String, String> feedback = {};
+  final Map<String, String> favoriteSelections = {};
   final Set<String> pendingScoreKeys = {};
   final Set<String> pendingFeedbackKeys = {};
+  final Set<String> pendingFavoriteKeys = {};
 
-  int get pendingCount => pendingScoreKeys.length + pendingFeedbackKeys.length;
+  int get pendingCount =>
+      pendingScoreKeys.length +
+      pendingFeedbackKeys.length +
+      pendingFavoriteKeys.length;
   List<Routine> get routines => appData?.routines ?? const [];
   List<DanceBlock> get blocks => appData?.blocks ?? const [];
   List<String> get judges => appData?.judges ?? const [];
-  List<String> get editableJudges => judges.where((judge) => roleFor(judge) == UserRole.judge).toList();
+  List<String> get editableJudges =>
+      judges.where((judge) => roleFor(judge) == UserRole.judge).toList();
   bool get isAdmin => roleFor(selectedJudge) == UserRole.admin;
-  bool get isAdminEditingAsJudge => isAdmin && adminScoringJudge != null && adminScoringJudge != selectedJudge;
-  bool get isLoadingBackendData => api.isConfigured && syncState == SyncState.connecting;
-  String get scoringJudge => isAdmin ? (adminScoringJudge ?? selectedJudge) : selectedJudge;
+  bool get isAdminEditingAsJudge =>
+      isAdmin &&
+      adminScoringJudge != null &&
+      adminScoringJudge != selectedJudge;
+  bool get isLoadingBackendData =>
+      api.isConfigured && syncState == SyncState.connecting;
+  String get scoringJudge =>
+      isAdmin ? (adminScoringJudge ?? selectedJudge) : selectedJudge;
 
   DanceBlock? get selectedBlock {
     if (blocks.isEmpty) return null;
@@ -73,7 +83,9 @@ class JudgingStore extends ChangeNotifier {
     if (block == null) return routines;
     final routineIds = block.routines.map((routine) => routine.id).toSet();
     final visible = routines.where((routine) {
-      return routineIds.contains(routine.id) || routine.blockId == block.blockId || routine.block == block.name;
+      return routineIds.contains(routine.id) ||
+          routine.blockId == block.blockId ||
+          routine.block == block.name;
     }).toList();
     return visible.isEmpty ? routines : visible;
   }
@@ -87,6 +99,43 @@ class JudgingStore extends ChangeNotifier {
     );
   }
 
+  List<FavoriteSelectionSummary> get favoriteSummaries {
+    final currentEventKey =
+        selectedEvent?.id ?? stableRemoteId(appData?.sourceName ?? '');
+    final routinesByID = {for (final routine in routines) routine.id: routine};
+    final summaries = <FavoriteSelectionSummary>[];
+    for (final entry in favoriteSelections.entries) {
+      final parsed = _parseFavoriteKey(entry.key);
+      final routine = routinesByID[entry.value];
+      if (parsed == null ||
+          parsed.eventId != currentEventKey ||
+          routine == null) {
+        continue;
+      }
+      summaries.add(FavoriteSelectionSummary(
+        id: entry.key,
+        category: parsed.category,
+        judge: _judgeNameForKey(parsed.judgeKey) ?? parsed.judgeKey,
+        blockName: _blockNameFor(parsed.blockId),
+        routine: routine,
+      ));
+    }
+    summaries.sort((left, right) {
+      final blockCompare = _blockSortOrder(left.blockName)
+          .compareTo(_blockSortOrder(right.blockName));
+      if (blockCompare != 0) return blockCompare;
+      final categoryCompare = FavoriteCategory.values
+          .indexOf(left.category)
+          .compareTo(FavoriteCategory.values.indexOf(right.category));
+      if (categoryCompare != 0) return categoryCompare;
+      final judgeCompare = left.judge.compareTo(right.judge);
+      if (judgeCompare != 0) return judgeCompare;
+      return (int.tryParse(left.routine.id) ?? 1 << 30)
+          .compareTo(int.tryParse(right.routine.id) ?? 1 << 30);
+    });
+    return summaries;
+  }
+
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
     selectedJudge = _prefs?.getString('selectedJudge') ?? '';
@@ -94,12 +143,19 @@ class JudgingStore extends ChangeNotifier {
     selectedBlockId = _prefs?.getString('selectedBlockId');
     scores.addAll(_decodeDoubleMap(_prefs?.getString('scores') ?? '{}'));
     feedback.addAll(_decodeStringMap(_prefs?.getString('feedback') ?? '{}'));
-    pendingScoreKeys.addAll(_prefs?.getStringList('pendingScoreKeys') ?? const []);
-    pendingFeedbackKeys.addAll(_prefs?.getStringList('pendingFeedbackKeys') ?? const []);
+    favoriteSelections.addAll(
+        _decodeStringMap(_prefs?.getString('favoriteSelections') ?? '{}'));
+    pendingScoreKeys
+        .addAll(_prefs?.getStringList('pendingScoreKeys') ?? const []);
+    pendingFeedbackKeys
+        .addAll(_prefs?.getStringList('pendingFeedbackKeys') ?? const []);
+    pendingFavoriteKeys
+        .addAll(_prefs?.getStringList('pendingFavoriteKeys') ?? const []);
 
     if (!api.isConfigured) {
       syncState = SyncState.localOnly;
-      syncMessage = 'Configura SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY con --dart-define.';
+      syncMessage =
+          'Configura SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY con --dart-define.';
       notifyListeners();
       return;
     }
@@ -117,7 +173,8 @@ class JudgingStore extends ChangeNotifier {
         orElse: () => events.firstWhere(
           (event) => event.isActive,
           orElse: () => events.isEmpty
-              ? EventSummary(id: '', slug: '', name: '', sourceName: '', isActive: false)
+              ? EventSummary(
+                  id: '', slug: '', name: '', sourceName: '', isActive: false)
               : events.first,
         ),
       );
@@ -145,11 +202,14 @@ class JudgingStore extends ChangeNotifier {
       final bundle = await api.fetchBundle(event);
       appData = bundle.appData;
       _normalizeCurrentSelection();
-      final judgeById = {for (final judge in judges) stableRemoteId(judge): judge};
+      final judgeById = {
+        for (final judge in judges) stableRemoteId(judge): judge
+      };
       for (final remoteScore in bundle.scores) {
         final judge = judgeById[remoteScore.judgeId];
         if (judge == null) continue;
-        final key = scoreKey(remoteScore.routineId, judge, remoteScore.criterionId);
+        final key =
+            scoreKey(remoteScore.routineId, judge, remoteScore.criterionId);
         if (!pendingScoreKeys.contains(key)) {
           scores[key] = remoteScore.value;
         }
@@ -160,6 +220,27 @@ class JudgingStore extends ChangeNotifier {
         final key = feedbackKey(remoteFeedback.routineId, judge);
         if (!pendingFeedbackKeys.contains(key)) {
           feedback[key] = remoteFeedback.body;
+        }
+      }
+      final eventPrefix = '${event.id}::';
+      final staleFavoriteKeys = favoriteSelections.keys.where((key) {
+        return key.startsWith(eventPrefix) &&
+            !pendingFavoriteKeys.contains(key);
+      }).toList();
+      for (final key in staleFavoriteKeys) {
+        favoriteSelections.remove(key);
+      }
+      for (final remoteFavorite in bundle.favorites) {
+        final judge = judgeById[remoteFavorite.judgeId];
+        if (judge == null) continue;
+        final key = favoriteKey(
+          remoteFavorite.category,
+          judge: judge,
+          eventId: remoteFavorite.eventId,
+          blockId: remoteFavorite.blockId,
+        );
+        if (!pendingFavoriteKeys.contains(key)) {
+          favoriteSelections[key] = remoteFavorite.routineId;
         }
       }
       await _persistAll();
@@ -174,9 +255,15 @@ class JudgingStore extends ChangeNotifier {
   JudgingTemplate templateFor(Routine routine) {
     final templates = appData?.templates ?? const <JudgingTemplate>[];
     return templates.firstWhere(
-      (template) => normalizedKey(template.genre) == normalizedKey(routine.genre),
+      (template) =>
+          normalizedKey(template.genre) == normalizedKey(routine.genre),
       orElse: () => templates.isEmpty
-          ? JudgingTemplate(templateId: 'general', genre: 'General', title: 'Hoja de jueceo', maxScore: 0, criteria: const [])
+          ? JudgingTemplate(
+              templateId: 'general',
+              genre: 'General',
+              title: 'Hoja de jueceo',
+              maxScore: 0,
+              criteria: const [])
           : templates.first,
     );
   }
@@ -189,8 +276,48 @@ class JudgingStore extends ChangeNotifier {
     return '$routineId::${normalizedKey(judge)}';
   }
 
+  String favoriteKey(
+    FavoriteCategory category, {
+    String? judge,
+    String? eventId,
+    String? blockId,
+  }) {
+    final eventKey = eventId ??
+        selectedEvent?.id ??
+        stableRemoteId(appData?.sourceName ?? '');
+    final blockKey = blockId ?? selectedBlock?.blockId ?? 'sin-bloque';
+    return '$eventKey::$blockKey::${normalizedKey(judge ?? scoringJudge)}::${category.id}';
+  }
+
   double scoreFor(Routine routine, String judge, Criterion criterion) {
     return scores[scoreKey(routine.id, judge, criterion.id)] ?? 0;
+  }
+
+  bool isFavorite(Routine routine, FavoriteCategory category, {String? judge}) {
+    return favoriteSelections[favoriteKey(category, judge: judge)] ==
+        routine.id;
+  }
+
+  bool hasFavorite(Routine routine, {String? judge}) {
+    for (final category in FavoriteCategory.values) {
+      if (isFavorite(routine, category, judge: judge)) return true;
+    }
+    return false;
+  }
+
+  Future<void> toggleFavorite(FavoriteCategory category, Routine routine,
+      {String? judge}) async {
+    final key = favoriteKey(category, judge: judge);
+    if (favoriteSelections[key] == routine.id) {
+      favoriteSelections.remove(key);
+    } else {
+      favoriteSelections[key] = routine.id;
+    }
+    pendingFavoriteKeys.add(key);
+    await _persistAll();
+    syncState = SyncState.pending;
+    notifyListeners();
+    await syncPending();
   }
 
   void selectJudge(String judge) {
@@ -208,7 +335,8 @@ class JudgingStore extends ChangeNotifier {
     if (judgeId == 'ati') return UserRole.admin;
     final profiles = appData?.judgeProfiles ?? const <JudgeProfile>[];
     for (final profile in profiles) {
-      if (profile.judgeId == judgeId || normalizedKey(profile.name) == normalizedKey(judge)) {
+      if (profile.judgeId == judgeId ||
+          normalizedKey(profile.name) == normalizedKey(judge)) {
         return profile.role;
       }
     }
@@ -225,7 +353,8 @@ class JudgingStore extends ChangeNotifier {
     final nextRoutine = block.routines.isNotEmpty
         ? block.routines.first
         : routines.firstWhere(
-            (routine) => routine.blockId == block.blockId || routine.block == block.name,
+            (routine) =>
+                routine.blockId == block.blockId || routine.block == block.name,
             orElse: () => routines.isEmpty
                 ? Routine(
                     id: '',
@@ -257,7 +386,11 @@ class JudgingStore extends ChangeNotifier {
   }
 
   void beginAdminScoring({required String judge, required Routine routine}) {
-    if (!isAdmin || !judges.contains(judge) || roleFor(judge) != UserRole.judge) return;
+    if (!isAdmin ||
+        !judges.contains(judge) ||
+        roleFor(judge) != UserRole.judge) {
+      return;
+    }
     adminScoringJudge = judge;
     selectedRoutineId = routine.id;
     final block = _blockContaining(routine);
@@ -274,10 +407,14 @@ class JudgingStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> submitScores(Routine routine, Map<int, double> values, {String? judge}) async {
+  Future<void> submitScores(Routine routine, Map<int, double> values,
+      {String? judge}) async {
     final activeJudge = judge ?? scoringJudge;
     final template = templateFor(routine);
-    final maxByCriterion = {for (final criterion in template.criteria) criterion.id: criterion.maxScore};
+    final maxByCriterion = {
+      for (final criterion in template.criteria)
+        criterion.id: criterion.maxScore
+    };
     for (final entry in values.entries) {
       final maxScore = maxByCriterion[entry.key] ?? 10;
       final key = scoreKey(routine.id, activeJudge, entry.key);
@@ -290,7 +427,8 @@ class JudgingStore extends ChangeNotifier {
     await syncPending();
   }
 
-  Future<void> setFeedback(Routine routine, String body, {String? judge}) async {
+  Future<void> setFeedback(Routine routine, String body,
+      {String? judge}) async {
     final activeJudge = judge ?? scoringJudge;
     final key = feedbackKey(routine.id, activeJudge);
     feedback[key] = body.length > 300 ? body.substring(0, 300) : body;
@@ -388,6 +526,37 @@ class JudgingStore extends ChangeNotifier {
       }
       await api.upsertFeedback(eventID, feedbackRows);
       pendingFeedbackKeys.clear();
+
+      final favoriteKeys = Set<String>.from(pendingFavoriteKeys);
+      final favoriteUpsertRows = <Map<String, dynamic>>[];
+      final favoriteDeleteRows = <Map<String, dynamic>>[];
+      for (final key in favoriteKeys) {
+        final parsed = _parseFavoriteKey(key);
+        if (parsed == null) continue;
+        final judgeName = _judgeNameForKey(parsed.judgeKey);
+        if (judgeName == null) continue;
+        final selectedRoutine = favoriteSelections[key];
+        if (selectedRoutine == null) {
+          favoriteDeleteRows.add({
+            'event_id': parsed.eventId,
+            'block_id': parsed.blockId,
+            'judge_id': stableRemoteId(judgeName),
+            'category': parsed.category.id,
+          });
+        } else {
+          favoriteUpsertRows.add({
+            'event_id': parsed.eventId,
+            'block_id': parsed.blockId,
+            'routine_id': selectedRoutine,
+            'judge_id': stableRemoteId(judgeName),
+            'category': parsed.category.id,
+            'device_id': 'android-tablet',
+          });
+        }
+      }
+      await api.upsertFavorites(favoriteUpsertRows);
+      await api.deleteFavorites(favoriteDeleteRows);
+      pendingFavoriteKeys.removeAll(favoriteKeys);
       await _persistAll();
       syncState = SyncState.online;
       syncMessage = 'Datos sincronizados.';
@@ -403,7 +572,8 @@ class JudgingStore extends ChangeNotifier {
     results.sort((left, right) {
       final totalCompare = right.total.compareTo(left.total);
       if (totalCompare != 0) return totalCompare;
-      return (int.tryParse(left.routine.id) ?? 0).compareTo(int.tryParse(right.routine.id) ?? 0);
+      return (int.tryParse(left.routine.id) ?? 0)
+          .compareTo(int.tryParse(right.routine.id) ?? 0);
     });
     return results;
   }
@@ -418,8 +588,13 @@ class JudgingStore extends ChangeNotifier {
       );
     }
     final submitted = totals.values.where((value) => value > 0).toList();
-    final total = submitted.isEmpty ? 0.0 : submitted.reduce((a, b) => a + b) / submitted.length;
-    final maxScore = template.maxScore > 0 ? template.maxScore : template.criteria.fold<double>(0, (sum, criterion) => sum + criterion.maxScore);
+    final total = submitted.isEmpty
+        ? 0.0
+        : submitted.reduce((a, b) => a + b) / submitted.length;
+    final maxScore = template.maxScore > 0
+        ? template.maxScore
+        : template.criteria
+            .fold<double>(0, (sum, criterion) => sum + criterion.maxScore);
     return RoutineResult(
       routine: routine,
       judgeTotals: totals,
@@ -431,8 +606,14 @@ class JudgingStore extends ChangeNotifier {
   Future<void> _persistAll() async {
     await _prefs?.setString('scores', jsonEncode(scores));
     await _prefs?.setString('feedback', jsonEncode(feedback));
-    await _prefs?.setStringList('pendingScoreKeys', pendingScoreKeys.toList()..sort());
-    await _prefs?.setStringList('pendingFeedbackKeys', pendingFeedbackKeys.toList()..sort());
+    await _prefs?.setString(
+        'favoriteSelections', jsonEncode(favoriteSelections));
+    await _prefs?.setStringList(
+        'pendingScoreKeys', pendingScoreKeys.toList()..sort());
+    await _prefs?.setStringList(
+        'pendingFeedbackKeys', pendingFeedbackKeys.toList()..sort());
+    await _prefs?.setStringList(
+        'pendingFavoriteKeys', pendingFavoriteKeys.toList()..sort());
   }
 
   void _normalizeCurrentSelection() {
@@ -447,7 +628,10 @@ class JudgingStore extends ChangeNotifier {
       selectedJudge = adminJudge ?? (judges.isEmpty ? '' : judges.first);
       _prefs?.setString('selectedJudge', selectedJudge);
     }
-    if (selectedBlockId == null || !blocks.any((block) => block.blockId == selectedBlockId || block.name == selectedBlockId)) {
+    if (selectedBlockId == null ||
+        !blocks.any((block) =>
+            block.blockId == selectedBlockId ||
+            block.name == selectedBlockId)) {
       DanceBlock? defaultBlock;
       for (final block in blocks) {
         if (block.isActive) {
@@ -462,10 +646,14 @@ class JudgingStore extends ChangeNotifier {
       }
     }
     if (!visibleRoutines.any((routine) => routine.id == selectedRoutineId)) {
-      selectedRoutineId = visibleRoutines.isNotEmpty ? visibleRoutines.first.id : (routines.isEmpty ? '' : routines.first.id);
+      selectedRoutineId = visibleRoutines.isNotEmpty
+          ? visibleRoutines.first.id
+          : (routines.isEmpty ? '' : routines.first.id);
       _prefs?.setString('selectedRoutineId', selectedRoutineId);
     }
-    if (adminScoringJudge != null && (!judges.contains(adminScoringJudge) || roleFor(adminScoringJudge!) != UserRole.judge)) {
+    if (adminScoringJudge != null &&
+        (!judges.contains(adminScoringJudge) ||
+            roleFor(adminScoringJudge!) != UserRole.judge)) {
       adminScoringJudge = null;
     }
   }
@@ -473,16 +661,65 @@ class JudgingStore extends ChangeNotifier {
   DanceBlock? _blockContaining(Routine routine) {
     for (final block in blocks) {
       final routineIds = block.routines.map((item) => item.id).toSet();
-      if (routineIds.contains(routine.id) || routine.blockId == block.blockId || routine.block == block.name) {
+      if (routineIds.contains(routine.id) ||
+          routine.blockId == block.blockId ||
+          routine.block == block.name) {
         return block;
       }
     }
     return null;
   }
 
+  ({
+    String eventId,
+    String blockId,
+    String judgeKey,
+    FavoriteCategory category
+  })? _parseFavoriteKey(String key) {
+    final parts = key.split('::');
+    if (parts.length != 4) return null;
+    final category = FavoriteCategory.fromId(parts[3]);
+    if (category == null) return null;
+    return (
+      eventId: parts[0],
+      blockId: parts[1],
+      judgeKey: parts[2],
+      category: category
+    );
+  }
+
+  String? _judgeNameForKey(String judgeKey) {
+    for (final judge in judges) {
+      if (normalizedKey(judge) == judgeKey ||
+          stableRemoteId(judge) == judgeKey) {
+        return judge;
+      }
+    }
+    return null;
+  }
+
+  String _blockNameFor(String blockId) {
+    for (final block in blocks) {
+      if (block.blockId == blockId || block.name == blockId) {
+        return block.name;
+      }
+    }
+    return blockId;
+  }
+
+  int _blockSortOrder(String blockName) {
+    for (final block in blocks) {
+      if (block.name == blockName || block.blockId == blockName) {
+        return block.sortOrder;
+      }
+    }
+    return 1 << 30;
+  }
+
   Map<String, double> _decodeDoubleMap(String raw) {
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    return decoded.map((key, value) => MapEntry(key, (value as num).toDouble()));
+    return decoded
+        .map((key, value) => MapEntry(key, (value as num).toDouble()));
   }
 
   Map<String, String> _decodeStringMap(String raw) {

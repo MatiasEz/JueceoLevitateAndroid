@@ -27,8 +27,9 @@ flutter create . --platforms=android
 - Selects event and judge.
 - Lists blocks/routines with search.
 - Scores criteria and writes feedback.
+- Marks vestuario, coreografia and musica favorites per judge.
 - Stores local values with pending sync.
-- Upserts scores/feedback to Supabase.
+- Upserts scores/feedback/favorites to Supabase.
 - Shows scores and dictamen by Genero-Edad-Cantidad with the same average/tie rules as iPad.
 - Exports ranking/dictamen PDF from the tablet.
 - Lets the admin upload an Excel into the `excel_imports` queue in Supabase.

@@ -25,12 +25,14 @@ class SupabaseApi {
 
   Future<List<EventSummary>> fetchEvents() async {
     var response = await http.get(
-      _endpoint('events?select=id,slug,name,source_name,is_active,event_type&or=(event_type.is.null,event_type.eq.event)&order=is_active.desc,created_at.desc'),
+      _endpoint(
+          'events?select=id,slug,name,source_name,is_active,event_type&or=(event_type.is.null,event_type.eq.event)&order=is_active.desc,created_at.desc'),
       headers: _headers,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       response = await http.get(
-        _endpoint('events?select=id,slug,name,source_name,is_active&order=is_active.desc,created_at.desc'),
+        _endpoint(
+            'events?select=id,slug,name,source_name,is_active&order=is_active.desc,created_at.desc'),
         headers: _headers,
       );
     }
@@ -38,7 +40,8 @@ class SupabaseApi {
     final rows = jsonDecode(response.body) as List<dynamic>;
     return rows
         .map((row) => EventSummary.fromJson(row as Map<String, dynamic>))
-        .where((event) => event.eventType != 'legacy_block' && event.eventType != 'archived')
+        .where((event) =>
+            event.eventType != 'legacy_block' && event.eventType != 'archived')
         .toList();
   }
 
@@ -48,16 +51,31 @@ class SupabaseApi {
       _endpoint('blocks?select=*&event_id=eq.$eventID&order=sort_order.asc'),
       headers: _headers,
     );
-    final blockRows = blockResponse.statusCode >= 200 && blockResponse.statusCode < 300
-        ? jsonDecode(blockResponse.body) as List<dynamic>
-        : <dynamic>[];
+    final blockRows =
+        blockResponse.statusCode >= 200 && blockResponse.statusCode < 300
+            ? jsonDecode(blockResponse.body) as List<dynamic>
+            : <dynamic>[];
     final responses = await Future.wait([
-      http.get(_endpoint('routines?select=*&event_id=eq.$eventID&order=sort_order.asc'), headers: _headers),
-      http.get(_endpoint('judges?select=*&event_id=eq.$eventID&order=sort_order.asc'), headers: _headers),
-      http.get(_endpoint('criteria_templates?select=*&event_id=eq.$eventID&order=sort_order.asc'), headers: _headers),
-      http.get(_endpoint('criteria?select=*&event_id=eq.$eventID&order=sort_order.asc'), headers: _headers),
-      http.get(_endpoint('scores?select=*&event_id=eq.$eventID'), headers: _headers),
-      http.get(_endpoint('feedback?select=*&event_id=eq.$eventID'), headers: _headers),
+      http.get(
+          _endpoint(
+              'routines?select=*&event_id=eq.$eventID&order=sort_order.asc'),
+          headers: _headers),
+      http.get(
+          _endpoint(
+              'judges?select=*&event_id=eq.$eventID&order=sort_order.asc'),
+          headers: _headers),
+      http.get(
+          _endpoint(
+              'criteria_templates?select=*&event_id=eq.$eventID&order=sort_order.asc'),
+          headers: _headers),
+      http.get(
+          _endpoint(
+              'criteria?select=*&event_id=eq.$eventID&order=sort_order.asc'),
+          headers: _headers),
+      http.get(_endpoint('scores?select=*&event_id=eq.$eventID'),
+          headers: _headers),
+      http.get(_endpoint('feedback?select=*&event_id=eq.$eventID'),
+          headers: _headers),
     ]);
     for (final response in responses) {
       _throwIfFailed(response);
@@ -69,8 +87,11 @@ class SupabaseApi {
     final criterionRows = jsonDecode(responses[3].body) as List<dynamic>;
     final scoreRows = jsonDecode(responses[4].body) as List<dynamic>;
     final feedbackRows = jsonDecode(responses[5].body) as List<dynamic>;
+    final favoriteRows = await _fetchFavorites(eventID);
 
-    final routines = routineRows.map((row) => Routine.fromJson(row as Map<String, dynamic>)).toList();
+    final routines = routineRows
+        .map((row) => Routine.fromJson(row as Map<String, dynamic>))
+        .toList();
     final judges = judgeRows
         .map((row) => (row as Map<String, dynamic>)['name'] as String? ?? '')
         .where((name) => name.isNotEmpty)
@@ -84,7 +105,9 @@ class SupabaseApi {
     final criteriaByTemplate = <String, List<Criterion>>{};
     for (final item in criterionRows.cast<Map<String, dynamic>>()) {
       final templateID = item['template_id'] as String? ?? '';
-      criteriaByTemplate.putIfAbsent(templateID, () => []).add(Criterion.fromJson(item));
+      criteriaByTemplate
+          .putIfAbsent(templateID, () => [])
+          .add(Criterion.fromJson(item));
     }
 
     final templates = templateRows.cast<Map<String, dynamic>>().map((row) {
@@ -102,7 +125,9 @@ class SupabaseApi {
     final blockTitles = <String, String>{};
     for (final row in routineRows.cast<Map<String, dynamic>>()) {
       final routine = Routine.fromJson(row);
-      final key = routine.blockId.isEmpty ? stableRemoteId(routine.block) : routine.blockId;
+      final key = routine.blockId.isEmpty
+          ? stableRemoteId(routine.block)
+          : routine.blockId;
       blocks.putIfAbsent(key, () => []).add(routine);
       blockTitles[key] = row['block_title'] as String? ?? '';
     }
@@ -127,24 +152,32 @@ class SupabaseApi {
       blocks: remoteBlocks.isNotEmpty
           ? remoteBlocks
           : blocks.entries
-          .map((entry) => DanceBlock(
-                blockId: entry.key,
-                name: entry.key,
-                title: blockTitles[entry.key] ?? '',
-                routines: entry.value,
-              ))
-          .toList(),
+              .map((entry) => DanceBlock(
+                    blockId: entry.key,
+                    name: entry.key,
+                    title: blockTitles[entry.key] ?? '',
+                    routines: entry.value,
+                  ))
+              .toList(),
     );
 
     return RemoteBundle(
       event: event,
       appData: appData,
-      scores: scoreRows.map((row) => RemoteScore.fromJson(row as Map<String, dynamic>)).toList(),
-      feedback: feedbackRows.map((row) => RemoteFeedback.fromJson(row as Map<String, dynamic>)).toList(),
+      scores: scoreRows
+          .map((row) => RemoteScore.fromJson(row as Map<String, dynamic>))
+          .toList(),
+      feedback: feedbackRows
+          .map((row) => RemoteFeedback.fromJson(row as Map<String, dynamic>))
+          .toList(),
+      favorites: favoriteRows
+          .map((row) => RemoteFavorite.fromJson(row as Map<String, dynamic>))
+          .toList(),
     );
   }
 
-  Future<void> upsertScores(String eventID, List<Map<String, dynamic>> rows) async {
+  Future<void> upsertScores(
+      String eventID, List<Map<String, dynamic>> rows) async {
     if (rows.isEmpty) return;
     final response = await http.post(
       _endpoint('scores?on_conflict=event_id,routine_id,judge_id,criterion_id'),
@@ -157,7 +190,8 @@ class SupabaseApi {
     _throwIfFailed(response);
   }
 
-  Future<void> upsertFeedback(String eventID, List<Map<String, dynamic>> rows) async {
+  Future<void> upsertFeedback(
+      String eventID, List<Map<String, dynamic>> rows) async {
     if (rows.isEmpty) return;
     final response = await http.post(
       _endpoint('feedback?on_conflict=event_id,routine_id,judge_id'),
@@ -168,6 +202,38 @@ class SupabaseApi {
       body: jsonEncode(rows),
     );
     _throwIfFailed(response);
+  }
+
+  Future<void> upsertFavorites(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return;
+    final response = await http.post(
+      _endpoint(
+          'routine_favorites?on_conflict=event_id,block_id,judge_id,category'),
+      headers: {
+        ..._headers,
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: jsonEncode(rows),
+    );
+    _throwIfFailed(response);
+  }
+
+  Future<void> deleteFavorites(List<Map<String, dynamic>> rows) async {
+    for (final row in rows) {
+      final eventID = _queryValue(row['event_id'] as String? ?? '');
+      final blockID = _queryValue(row['block_id'] as String? ?? '');
+      final judgeID = _queryValue(row['judge_id'] as String? ?? '');
+      final category = _queryValue(row['category'] as String? ?? '');
+      final response = await http.delete(
+        _endpoint(
+            'routine_favorites?event_id=eq.$eventID&block_id=eq.$blockID&judge_id=eq.$judgeID&category=eq.$category'),
+        headers: {
+          ..._headers,
+          'Prefer': 'return=minimal',
+        },
+      );
+      _throwIfFailed(response);
+    }
   }
 
   Future<void> uploadExcelImport(Map<String, dynamic> row) async {
@@ -182,6 +248,23 @@ class SupabaseApi {
     _throwIfFailed(response);
   }
 
+  Future<List<dynamic>> _fetchFavorites(String eventID) async {
+    try {
+      final response = await http.get(
+        _endpoint('routine_favorites?select=*&event_id=eq.$eventID'),
+        headers: _headers,
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return const [];
+      }
+      return jsonDecode(response.body) as List<dynamic>;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  String _queryValue(String value) => Uri.encodeQueryComponent(value);
+
   void _throwIfFailed(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw SupabaseApiException(response.statusCode, response.body);
@@ -195,12 +278,14 @@ class RemoteBundle {
     required this.appData,
     required this.scores,
     required this.feedback,
+    required this.favorites,
   });
 
   final EventSummary event;
   final AppData appData;
   final List<RemoteScore> scores;
   final List<RemoteFeedback> feedback;
+  final List<RemoteFavorite> favorites;
 }
 
 class SupabaseApiException implements Exception {
