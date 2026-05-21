@@ -41,6 +41,68 @@ class AppData {
   final List<JudgingTemplate> templates;
   final List<String> judges;
   final List<JudgeProfile> judgeProfiles;
+
+  factory AppData.fromJson(Map<String, dynamic> json) {
+    final routines = (json['routines'] as List<dynamic>? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(Routine.fromJson)
+        .toList();
+    final routinesByBlock = <String, List<Routine>>{};
+    for (final routine in routines) {
+      final key = routine.blockId.isEmpty
+          ? stableRemoteId(routine.block)
+          : routine.blockId;
+      routinesByBlock.putIfAbsent(key, () => []).add(routine);
+    }
+    final blocks = (json['blocks'] as List<dynamic>? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map((row) {
+      final block = DanceBlock.fromJson(row);
+      final blockRoutines = block.routines.isNotEmpty
+          ? block.routines
+          : routinesByBlock[block.blockId];
+      return DanceBlock(
+        blockId: block.blockId,
+        name: block.name,
+        title: block.title,
+        sortOrder: block.sortOrder,
+        isActive: block.isActive,
+        routines: blockRoutines ?? const [],
+      );
+    }).toList();
+
+    return AppData(
+      sourceName: json['sourceName'] as String? ??
+          json['source_name'] as String? ??
+          'Sin datos',
+      blocks: blocks.isNotEmpty
+          ? blocks
+          : routinesByBlock.entries
+              .map((entry) => DanceBlock(
+                    blockId: entry.key,
+                    name: entry.value.first.block,
+                    title: entry.value.first.block,
+                    routines: entry.value,
+                  ))
+              .toList(),
+      routines: routines,
+      templates: (json['templates'] as List<dynamic>? ?? const [])
+          .cast<Map<String, dynamic>>()
+          .map(JudgingTemplate.fromJson)
+          .toList(),
+      judges: (json['judges'] as List<dynamic>? ?? const [])
+          .map((item) => '$item')
+          .where((name) => name.trim().isNotEmpty)
+          .toList(),
+      judgeProfiles: (json['judgeProfiles'] as List<dynamic>? ??
+              json['judge_profiles'] as List<dynamic>? ??
+              const [])
+          .cast<Map<String, dynamic>>()
+          .map(JudgeProfile.fromJson)
+          .where((profile) => profile.name.trim().isNotEmpty)
+          .toList(),
+    );
+  }
 }
 
 enum UserRole { judge, admin }
@@ -77,11 +139,13 @@ class JudgeProfile {
 
   factory JudgeProfile.fromJson(Map<String, dynamic> json) {
     final rawRole = json['role'] as String? ?? '';
+    final judgeId = json['judge_id'] as String? ??
+        json['judgeID'] as String? ??
+        stableRemoteId(json['name'] as String? ?? '');
     return JudgeProfile(
-      judgeId: json['judge_id'] as String? ??
-          stableRemoteId(json['name'] as String? ?? ''),
+      judgeId: judgeId,
       name: json['name'] as String? ?? '',
-      role: rawRole == 'admin' || (json['judge_id'] as String? ?? '') == 'ati'
+      role: rawRole == 'admin' || judgeId == 'ati'
           ? UserRole.admin
           : UserRole.judge,
     );
@@ -104,6 +168,22 @@ class DanceBlock {
   final List<Routine> routines;
   final int sortOrder;
   final bool isActive;
+
+  factory DanceBlock.fromJson(Map<String, dynamic> json) => DanceBlock(
+        blockId: json['block_id'] as String? ??
+            json['blockID'] as String? ??
+            json['id'] as String? ??
+            stableRemoteId(json['name'] as String? ?? ''),
+        name: json['name'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        sortOrder: json['sort_order'] as int? ?? json['sortOrder'] as int? ?? 0,
+        isActive:
+            json['is_active'] as bool? ?? json['isActive'] as bool? ?? false,
+        routines: (json['routines'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(Routine.fromJson)
+            .toList(),
+      );
 }
 
 class Routine {
@@ -139,7 +219,8 @@ class Routine {
 
   factory Routine.fromJson(Map<String, dynamic> json) => Routine(
         id: json['routine_id'] as String? ?? json['id'] as String? ?? '',
-        blockId: json['block_id'] as String? ?? '',
+        blockId:
+            json['block_id'] as String? ?? json['blockID'] as String? ?? '',
         block: json['block'] as String? ?? '',
         name: json['name'] as String? ?? '',
         academy: json['academy'] as String? ?? '',
@@ -169,6 +250,21 @@ class JudgingTemplate {
   final String title;
   final double maxScore;
   final List<Criterion> criteria;
+
+  factory JudgingTemplate.fromJson(Map<String, dynamic> json) =>
+      JudgingTemplate(
+        templateId: json['template_id'] as String? ??
+            json['templateID'] as String? ??
+            stableRemoteId(json['genre'] as String? ?? ''),
+        genre: json['genre'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        maxScore: (json['max_score'] as num? ?? json['maxScore'] as num? ?? 0)
+            .toDouble(),
+        criteria: (json['criteria'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(Criterion.fromJson)
+            .toList(),
+      );
 }
 
 class Criterion {
@@ -229,6 +325,24 @@ class RemoteFeedback {
       );
 }
 
+class RemotePenalty {
+  RemotePenalty({
+    required this.routineId,
+    required this.judgeId,
+    required this.value,
+  });
+
+  final String routineId;
+  final String judgeId;
+  final double value;
+
+  factory RemotePenalty.fromJson(Map<String, dynamic> json) => RemotePenalty(
+        routineId: json['routine_id'] as String? ?? '',
+        judgeId: json['judge_id'] as String? ?? '',
+        value: (json['value'] as num? ?? 0).toDouble(),
+      );
+}
+
 class RemoteFavorite {
   RemoteFavorite({
     required this.eventId,
@@ -274,13 +388,17 @@ class RoutineResult {
   RoutineResult({
     required this.routine,
     required this.judgeTotals,
+    required this.judgePenalties,
     required this.total,
+    required this.penalty,
     required this.maxScore,
   });
 
   final Routine routine;
   final Map<String, double> judgeTotals;
+  final Map<String, double> judgePenalties;
   final double total;
+  final double penalty;
   final double maxScore;
 }
 

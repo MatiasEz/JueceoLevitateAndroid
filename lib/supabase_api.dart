@@ -76,6 +76,8 @@ class SupabaseApi {
           headers: _headers),
       http.get(_endpoint('feedback?select=*&event_id=eq.$eventID'),
           headers: _headers),
+      http.get(_endpoint('penalties?select=*&event_id=eq.$eventID'),
+          headers: _headers),
     ]);
     for (final response in responses) {
       _throwIfFailed(response);
@@ -87,6 +89,7 @@ class SupabaseApi {
     final criterionRows = jsonDecode(responses[3].body) as List<dynamic>;
     final scoreRows = jsonDecode(responses[4].body) as List<dynamic>;
     final feedbackRows = jsonDecode(responses[5].body) as List<dynamic>;
+    final penaltyRows = jsonDecode(responses[6].body) as List<dynamic>;
     final favoriteRows = await _fetchFavorites(eventID);
 
     final routines = routineRows
@@ -170,6 +173,9 @@ class SupabaseApi {
       feedback: feedbackRows
           .map((row) => RemoteFeedback.fromJson(row as Map<String, dynamic>))
           .toList(),
+      penalties: penaltyRows
+          .map((row) => RemotePenalty.fromJson(row as Map<String, dynamic>))
+          .toList(),
       favorites: favoriteRows
           .map((row) => RemoteFavorite.fromJson(row as Map<String, dynamic>))
           .toList(),
@@ -195,6 +201,20 @@ class SupabaseApi {
     if (rows.isEmpty) return;
     final response = await http.post(
       _endpoint('feedback?on_conflict=event_id,routine_id,judge_id'),
+      headers: {
+        ..._headers,
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: jsonEncode(rows),
+    );
+    _throwIfFailed(response);
+  }
+
+  Future<void> upsertPenalties(
+      String eventID, List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return;
+    final response = await http.post(
+      _endpoint('penalties?on_conflict=event_id,routine_id,judge_id'),
       headers: {
         ..._headers,
         'Prefer': 'resolution=merge-duplicates,return=minimal',
@@ -278,6 +298,7 @@ class RemoteBundle {
     required this.appData,
     required this.scores,
     required this.feedback,
+    required this.penalties,
     required this.favorites,
   });
 
@@ -285,6 +306,7 @@ class RemoteBundle {
   final AppData appData;
   final List<RemoteScore> scores;
   final List<RemoteFeedback> feedback;
+  final List<RemotePenalty> penalties;
   final List<RemoteFavorite> favorites;
 }
 

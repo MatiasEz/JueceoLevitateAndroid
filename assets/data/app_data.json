@@ -1,0 +1,1955 @@
+{
+  "sourceName": "Bloque2.xlsx",
+  "blocks": [
+    {
+      "blockID": "bloque-2",
+      "name": "BLOQUE 2",
+      "title": "SEGUNDA EDICIÓN 2024 · BLOQUE 2 · DANZAS NO AÉREAS · DOMINGO 6 DE OCTUBRE",
+      "sortOrder": 51,
+      "isActive": false,
+      "routines": [
+        {
+          "id": "51",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Sembrando Vida",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "BABY",
+          "genre": "BALLET",
+          "level": "-",
+          "category": "DÚO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:00",
+          "duration": "4.0"
+        },
+        {
+          "id": "52",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Pintoras",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "BABY",
+          "genre": "BALLET",
+          "level": "-",
+          "category": "TRÍO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:04",
+          "duration": "3"
+        },
+        {
+          "id": "53",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Sirenas",
+          "academy": "MARAN’S DANZA",
+          "division": "BABY",
+          "genre": "JAZZ",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "CELESTE GOMEZ URIBE",
+          "state": "VERACRUZ",
+          "time": "07:07",
+          "duration": "3"
+        },
+        {
+          "id": "54",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Haciendo Mis Sueños Realidad",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "PETITE",
+          "genre": "BALLET",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:10",
+          "duration": "4"
+        },
+        {
+          "id": "55",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Lilo",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "PETITE",
+          "genre": "BALLET",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:14",
+          "duration": "3"
+        },
+        {
+          "id": "56",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Merlina",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "PETITE",
+          "genre": "BALLET",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:17",
+          "duration": "3"
+        },
+        {
+          "id": "57",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Mi Viaje",
+          "academy": "MARAN’S DANZA",
+          "division": "PETITE",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "07:20",
+          "duration": "3"
+        },
+        {
+          "id": "58",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Vals Mexicano",
+          "academy": "MAGIC BALLET",
+          "division": "JUNIOR",
+          "genre": "BALLET",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+          "state": "CDMX",
+          "time": "07:23",
+          "duration": "3"
+        },
+        {
+          "id": "59",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Trauma",
+          "academy": "MARAN’S DANZA",
+          "division": "JUNIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "07:26",
+          "duration": "3"
+        },
+        {
+          "id": "60",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Gotitas",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "PETITE",
+          "genre": "BALLET",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "CELESTE GÓMEZ",
+          "state": "CDMX",
+          "time": "07:29",
+          "duration": "3"
+        },
+        {
+          "id": "61",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Old Party",
+          "academy": "MARAN’S DANZA",
+          "division": "PETITE",
+          "genre": "JAZZ",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "DANIEL MONTALVO",
+          "state": "VERACRUZ",
+          "time": "07:32",
+          "duration": "3"
+        },
+        {
+          "id": "62",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Ritmo Coqueto",
+          "academy": "BALLET&KIDS",
+          "division": "PETITE",
+          "genre": "ACROJAZZ",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "ELENA GISELLE DELGADO NAVARRETE",
+          "state": "CDMX",
+          "time": "07:35",
+          "duration": "3"
+        },
+        {
+          "id": "63",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Lazo",
+          "academy": "MARAN’S DANZA",
+          "division": "PETITE",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "TRÍO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "07:38",
+          "duration": "3"
+        },
+        {
+          "id": "64",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Por Siempre",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "JUNIOR",
+          "genre": "LÍRICO",
+          "level": "",
+          "category": "DUO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:41",
+          "duration": "4"
+        },
+        {
+          "id": "65",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Solo De Derbake Mix",
+          "academy": "CON LOS PIES EN EL AIRE",
+          "division": "JUNIOR",
+          "genre": "BELLYDANCE",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "BRISA FERNANDA ROBLES MARTÍNEZ",
+          "state": "MORELOS",
+          "time": "07:45",
+          "duration": "3"
+        },
+        {
+          "id": "66",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Catrinas",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "JUNIOR",
+          "genre": "HIP HOP",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "JESUS ANDRES JIMENEZ",
+          "state": "CDMX",
+          "time": "07:48",
+          "duration": "3"
+        },
+        {
+          "id": "67",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Camino Inevitbale Hacia El Final De Mi Vida",
+          "academy": "MARAN’S DANZA",
+          "division": "TEEN",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "DANIEL MONTALVO",
+          "state": "VERACRUZ",
+          "time": "07:51",
+          "duration": "4"
+        },
+        {
+          "id": "68",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Te Olvidaré",
+          "academy": "MITOTIA CENTRO DE ARTE",
+          "division": "JUNIOR",
+          "genre": "LÍRICO",
+          "level": "-",
+          "category": "TRÍO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "CDMX",
+          "time": "07:55",
+          "duration": "3"
+        },
+        {
+          "id": "69",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Love Runs Out",
+          "academy": "MARAN’S DANZA",
+          "division": "JUNIOR",
+          "genre": "JAZZ",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "DANIEL MONTALVO",
+          "state": "VERACRUZ",
+          "time": "07:58",
+          "duration": "4"
+        },
+        {
+          "id": "70",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Dolls",
+          "academy": "RELEASE ESCUELA DE DANZA",
+          "division": "JUNIOR",
+          "genre": "ACROJAZZ",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "LUZ ANGÉLICA CÁRDENAS TEJEDA",
+          "state": "VERACRUZ",
+          "time": "08:02",
+          "duration": "4"
+        },
+        {
+          "id": "71",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Inspectoras",
+          "academy": "MARAN’S DANZA",
+          "division": "PETITE",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "08:06",
+          "duration": "3"
+        },
+        {
+          "id": "72",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Zozobra",
+          "academy": "SPIRALIS ARTES ESCÉNICAS",
+          "division": "TEEN",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "NIDIA KAREN GARCÍA BRAVO",
+          "state": "OAXACA",
+          "time": "08:09",
+          "duration": "3"
+        },
+        {
+          "id": "73",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "El Dolor De Las Mascaras",
+          "academy": "MARAN’S DANZA",
+          "division": "TEEN",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "08:12",
+          "duration": "3"
+        },
+        {
+          "id": "74",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Ethereal",
+          "academy": "CUERPOS EN VUELO",
+          "division": "TEEN",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "CARLOS NARANJO",
+          "state": "ESTADO DE MÉXICO",
+          "time": "08:15",
+          "duration": "3"
+        },
+        {
+          "id": "75",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Mi Declive",
+          "academy": "MARAN’S DANZA",
+          "division": "TEEN",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "08:18",
+          "duration": "3"
+        },
+        {
+          "id": "76",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Sirio",
+          "academy": "SPIRALIS ARTES ESCÉNICAS",
+          "division": "TEEN",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "NIDIA KAREN GARCÍA BRAVO",
+          "state": "OAXACA",
+          "time": "08:21",
+          "duration": "3"
+        },
+        {
+          "id": "77",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Madre Tierra",
+          "academy": "MARAN’S DANZA",
+          "division": "JUNIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "08:24",
+          "duration": "3"
+        },
+        {
+          "id": "78",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Saki Saki",
+          "academy": "CON LOS PIES EN EL AIRE",
+          "division": "SENIOR",
+          "genre": "BELLYDANCE",
+          "level": "",
+          "category": "TRÍO",
+          "choreographer": "ROSA GABRIELA RASURA HERNANDEZ",
+          "state": "MORELOS",
+          "time": "08:27",
+          "duration": "3"
+        },
+        {
+          "id": "79",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Run",
+          "academy": "MARAN’S DANZA",
+          "division": "TEEN",
+          "genre": "LÍRICO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "DANIEL MONTALVO",
+          "state": "VERACRUZ",
+          "time": "08:30",
+          "duration": "4"
+        },
+        {
+          "id": "80",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Conciente",
+          "academy": "CON LOS PIES EN EL AIRE",
+          "division": "SENIOR",
+          "genre": "BELLYDANCE",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "MA. RAQUEL BAHENA ROBLES",
+          "state": "MORELOS",
+          "time": "08:34",
+          "duration": "3"
+        },
+        {
+          "id": "81",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Raqs Al Sayf",
+          "academy": "ACADEMIA MERAKI",
+          "division": "SENIOR",
+          "genre": "BELLYDANCE",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "GLORIA ANGÉLICA ARENAS URBAN",
+          "state": "ESTADO DE MÉXICO",
+          "time": "08:37",
+          "duration": "3"
+        },
+        {
+          "id": "82",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Oriental Fan Veils",
+          "academy": "ARTI AITY STUDIO",
+          "division": "SENIOR",
+          "genre": "BELLYDANCE",
+          "level": "",
+          "category": "SOLO",
+          "choreographer": "NAOMI GUTIERREZ",
+          "state": "CDMX",
+          "time": "08:40",
+          "duration": "3"
+        },
+        {
+          "id": "83",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "This Is Me - Grand Show Man",
+          "academy": "MAGIC BALLET",
+          "division": "SENIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "DUO",
+          "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+          "state": "CDMX",
+          "time": "08:43",
+          "duration": "3"
+        },
+        {
+          "id": "84",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Ying-Yang",
+          "academy": "FUSIÓNARTE DANZA",
+          "division": "SENIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "DUO",
+          "choreographer": "DANIEL RAMÍREZ RONZÓN",
+          "state": "CDMX",
+          "time": "08:46",
+          "duration": "4"
+        },
+        {
+          "id": "85",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Graduados",
+          "academy": "MARAN’S DANZA",
+          "division": "SENIOR",
+          "genre": "BALLET",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "MARINA ELIZONDO",
+          "state": "VERACRUZ",
+          "time": "08:50",
+          "duration": "3"
+        },
+        {
+          "id": "86",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Vals Mexicano",
+          "academy": "MAGIC BALLET",
+          "division": "SENIOR",
+          "genre": "BALLET",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+          "state": "CDMX",
+          "time": "08:53",
+          "duration": "3"
+        },
+        {
+          "id": "87",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Anhelo",
+          "academy": "MARAN’S DANZA",
+          "division": "SENIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "GRUPO",
+          "choreographer": "DANIEL MONTALVO",
+          "state": "VERACRUZ",
+          "time": "08:56",
+          "duration": "3"
+        },
+        {
+          "id": "88",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Carmen Habanera",
+          "academy": "MAGIC BALLET",
+          "division": "SENIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+          "state": "CDMX",
+          "time": "08:59",
+          "duration": "3"
+        },
+        {
+          "id": "89",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Algo De Mi Se Quedara Con Tigo",
+          "academy": "MARAN’S DANZA",
+          "division": "SENIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "CELESTE GOMEZ URIBE",
+          "state": "VERACRUZ",
+          "time": "09:02",
+          "duration": "4"
+        },
+        {
+          "id": "90",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "Brilla",
+          "academy": "MARAN’S DANZA",
+          "division": "JUNIOR",
+          "genre": "CONTEMPORÁNEO",
+          "level": "-",
+          "category": "TRÍO",
+          "choreographer": "CELESTE GOMEZ",
+          "state": "VERACRUZ",
+          "time": "09:06",
+          "duration": "3"
+        },
+        {
+          "id": "91",
+          "blockID": "bloque-2",
+          "block": "BLOQUE 2",
+          "name": "De Mi Enamorate",
+          "academy": "MARAN’S DANZA",
+          "division": "SENIOR",
+          "genre": "LÍRICO",
+          "level": "-",
+          "category": "SOLO",
+          "choreographer": "DANIEL MONTALVO",
+          "state": "VERACRUZ",
+          "time": "09:09",
+          "duration": "3"
+        }
+      ]
+    }
+  ],
+  "routines": [
+    {
+      "id": "51",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Sembrando Vida",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "BABY",
+      "genre": "BALLET",
+      "level": "-",
+      "category": "DÚO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:00",
+      "duration": "4.0"
+    },
+    {
+      "id": "52",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Pintoras",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "BABY",
+      "genre": "BALLET",
+      "level": "-",
+      "category": "TRÍO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:04",
+      "duration": "3"
+    },
+    {
+      "id": "53",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Sirenas",
+      "academy": "MARAN’S DANZA",
+      "division": "BABY",
+      "genre": "JAZZ",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "CELESTE GOMEZ URIBE",
+      "state": "VERACRUZ",
+      "time": "07:07",
+      "duration": "3"
+    },
+    {
+      "id": "54",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Haciendo Mis Sueños Realidad",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "PETITE",
+      "genre": "BALLET",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:10",
+      "duration": "4"
+    },
+    {
+      "id": "55",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Lilo",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "PETITE",
+      "genre": "BALLET",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:14",
+      "duration": "3"
+    },
+    {
+      "id": "56",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Merlina",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "PETITE",
+      "genre": "BALLET",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:17",
+      "duration": "3"
+    },
+    {
+      "id": "57",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Mi Viaje",
+      "academy": "MARAN’S DANZA",
+      "division": "PETITE",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "07:20",
+      "duration": "3"
+    },
+    {
+      "id": "58",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Vals Mexicano",
+      "academy": "MAGIC BALLET",
+      "division": "JUNIOR",
+      "genre": "BALLET",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+      "state": "CDMX",
+      "time": "07:23",
+      "duration": "3"
+    },
+    {
+      "id": "59",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Trauma",
+      "academy": "MARAN’S DANZA",
+      "division": "JUNIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "07:26",
+      "duration": "3"
+    },
+    {
+      "id": "60",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Gotitas",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "PETITE",
+      "genre": "BALLET",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "CELESTE GÓMEZ",
+      "state": "CDMX",
+      "time": "07:29",
+      "duration": "3"
+    },
+    {
+      "id": "61",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Old Party",
+      "academy": "MARAN’S DANZA",
+      "division": "PETITE",
+      "genre": "JAZZ",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "DANIEL MONTALVO",
+      "state": "VERACRUZ",
+      "time": "07:32",
+      "duration": "3"
+    },
+    {
+      "id": "62",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Ritmo Coqueto",
+      "academy": "BALLET&KIDS",
+      "division": "PETITE",
+      "genre": "ACROJAZZ",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "ELENA GISELLE DELGADO NAVARRETE",
+      "state": "CDMX",
+      "time": "07:35",
+      "duration": "3"
+    },
+    {
+      "id": "63",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Lazo",
+      "academy": "MARAN’S DANZA",
+      "division": "PETITE",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "TRÍO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "07:38",
+      "duration": "3"
+    },
+    {
+      "id": "64",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Por Siempre",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "JUNIOR",
+      "genre": "LÍRICO",
+      "level": "",
+      "category": "DUO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:41",
+      "duration": "4"
+    },
+    {
+      "id": "65",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Solo De Derbake Mix",
+      "academy": "CON LOS PIES EN EL AIRE",
+      "division": "JUNIOR",
+      "genre": "BELLYDANCE",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "BRISA FERNANDA ROBLES MARTÍNEZ",
+      "state": "MORELOS",
+      "time": "07:45",
+      "duration": "3"
+    },
+    {
+      "id": "66",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Catrinas",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "JUNIOR",
+      "genre": "HIP HOP",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "JESUS ANDRES JIMENEZ",
+      "state": "CDMX",
+      "time": "07:48",
+      "duration": "3"
+    },
+    {
+      "id": "67",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Camino Inevitbale Hacia El Final De Mi Vida",
+      "academy": "MARAN’S DANZA",
+      "division": "TEEN",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "DANIEL MONTALVO",
+      "state": "VERACRUZ",
+      "time": "07:51",
+      "duration": "4"
+    },
+    {
+      "id": "68",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Te Olvidaré",
+      "academy": "MITOTIA CENTRO DE ARTE",
+      "division": "JUNIOR",
+      "genre": "LÍRICO",
+      "level": "-",
+      "category": "TRÍO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "CDMX",
+      "time": "07:55",
+      "duration": "3"
+    },
+    {
+      "id": "69",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Love Runs Out",
+      "academy": "MARAN’S DANZA",
+      "division": "JUNIOR",
+      "genre": "JAZZ",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "DANIEL MONTALVO",
+      "state": "VERACRUZ",
+      "time": "07:58",
+      "duration": "4"
+    },
+    {
+      "id": "70",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Dolls",
+      "academy": "RELEASE ESCUELA DE DANZA",
+      "division": "JUNIOR",
+      "genre": "ACROJAZZ",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "LUZ ANGÉLICA CÁRDENAS TEJEDA",
+      "state": "VERACRUZ",
+      "time": "08:02",
+      "duration": "4"
+    },
+    {
+      "id": "71",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Inspectoras",
+      "academy": "MARAN’S DANZA",
+      "division": "PETITE",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "08:06",
+      "duration": "3"
+    },
+    {
+      "id": "72",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Zozobra",
+      "academy": "SPIRALIS ARTES ESCÉNICAS",
+      "division": "TEEN",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "NIDIA KAREN GARCÍA BRAVO",
+      "state": "OAXACA",
+      "time": "08:09",
+      "duration": "3"
+    },
+    {
+      "id": "73",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "El Dolor De Las Mascaras",
+      "academy": "MARAN’S DANZA",
+      "division": "TEEN",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "08:12",
+      "duration": "3"
+    },
+    {
+      "id": "74",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Ethereal",
+      "academy": "CUERPOS EN VUELO",
+      "division": "TEEN",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "CARLOS NARANJO",
+      "state": "ESTADO DE MÉXICO",
+      "time": "08:15",
+      "duration": "3"
+    },
+    {
+      "id": "75",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Mi Declive",
+      "academy": "MARAN’S DANZA",
+      "division": "TEEN",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "08:18",
+      "duration": "3"
+    },
+    {
+      "id": "76",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Sirio",
+      "academy": "SPIRALIS ARTES ESCÉNICAS",
+      "division": "TEEN",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "NIDIA KAREN GARCÍA BRAVO",
+      "state": "OAXACA",
+      "time": "08:21",
+      "duration": "3"
+    },
+    {
+      "id": "77",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Madre Tierra",
+      "academy": "MARAN’S DANZA",
+      "division": "JUNIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "08:24",
+      "duration": "3"
+    },
+    {
+      "id": "78",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Saki Saki",
+      "academy": "CON LOS PIES EN EL AIRE",
+      "division": "SENIOR",
+      "genre": "BELLYDANCE",
+      "level": "",
+      "category": "TRÍO",
+      "choreographer": "ROSA GABRIELA RASURA HERNANDEZ",
+      "state": "MORELOS",
+      "time": "08:27",
+      "duration": "3"
+    },
+    {
+      "id": "79",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Run",
+      "academy": "MARAN’S DANZA",
+      "division": "TEEN",
+      "genre": "LÍRICO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "DANIEL MONTALVO",
+      "state": "VERACRUZ",
+      "time": "08:30",
+      "duration": "4"
+    },
+    {
+      "id": "80",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Conciente",
+      "academy": "CON LOS PIES EN EL AIRE",
+      "division": "SENIOR",
+      "genre": "BELLYDANCE",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "MA. RAQUEL BAHENA ROBLES",
+      "state": "MORELOS",
+      "time": "08:34",
+      "duration": "3"
+    },
+    {
+      "id": "81",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Raqs Al Sayf",
+      "academy": "ACADEMIA MERAKI",
+      "division": "SENIOR",
+      "genre": "BELLYDANCE",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "GLORIA ANGÉLICA ARENAS URBAN",
+      "state": "ESTADO DE MÉXICO",
+      "time": "08:37",
+      "duration": "3"
+    },
+    {
+      "id": "82",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Oriental Fan Veils",
+      "academy": "ARTI AITY STUDIO",
+      "division": "SENIOR",
+      "genre": "BELLYDANCE",
+      "level": "",
+      "category": "SOLO",
+      "choreographer": "NAOMI GUTIERREZ",
+      "state": "CDMX",
+      "time": "08:40",
+      "duration": "3"
+    },
+    {
+      "id": "83",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "This Is Me - Grand Show Man",
+      "academy": "MAGIC BALLET",
+      "division": "SENIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "DUO",
+      "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+      "state": "CDMX",
+      "time": "08:43",
+      "duration": "3"
+    },
+    {
+      "id": "84",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Ying-Yang",
+      "academy": "FUSIÓNARTE DANZA",
+      "division": "SENIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "DUO",
+      "choreographer": "DANIEL RAMÍREZ RONZÓN",
+      "state": "CDMX",
+      "time": "08:46",
+      "duration": "4"
+    },
+    {
+      "id": "85",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Graduados",
+      "academy": "MARAN’S DANZA",
+      "division": "SENIOR",
+      "genre": "BALLET",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "MARINA ELIZONDO",
+      "state": "VERACRUZ",
+      "time": "08:50",
+      "duration": "3"
+    },
+    {
+      "id": "86",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Vals Mexicano",
+      "academy": "MAGIC BALLET",
+      "division": "SENIOR",
+      "genre": "BALLET",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+      "state": "CDMX",
+      "time": "08:53",
+      "duration": "3"
+    },
+    {
+      "id": "87",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Anhelo",
+      "academy": "MARAN’S DANZA",
+      "division": "SENIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "GRUPO",
+      "choreographer": "DANIEL MONTALVO",
+      "state": "VERACRUZ",
+      "time": "08:56",
+      "duration": "3"
+    },
+    {
+      "id": "88",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Carmen Habanera",
+      "academy": "MAGIC BALLET",
+      "division": "SENIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "YAZMIN REBECA ZÚÑIGA GARCÍA",
+      "state": "CDMX",
+      "time": "08:59",
+      "duration": "3"
+    },
+    {
+      "id": "89",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Algo De Mi Se Quedara Con Tigo",
+      "academy": "MARAN’S DANZA",
+      "division": "SENIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "CELESTE GOMEZ URIBE",
+      "state": "VERACRUZ",
+      "time": "09:02",
+      "duration": "4"
+    },
+    {
+      "id": "90",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "Brilla",
+      "academy": "MARAN’S DANZA",
+      "division": "JUNIOR",
+      "genre": "CONTEMPORÁNEO",
+      "level": "-",
+      "category": "TRÍO",
+      "choreographer": "CELESTE GOMEZ",
+      "state": "VERACRUZ",
+      "time": "09:06",
+      "duration": "3"
+    },
+    {
+      "id": "91",
+      "blockID": "bloque-2",
+      "block": "BLOQUE 2",
+      "name": "De Mi Enamorate",
+      "academy": "MARAN’S DANZA",
+      "division": "SENIOR",
+      "genre": "LÍRICO",
+      "level": "-",
+      "category": "SOLO",
+      "choreographer": "DANIEL MONTALVO",
+      "state": "VERACRUZ",
+      "time": "09:09",
+      "duration": "3"
+    }
+  ],
+  "templates": [
+    {
+      "genre": "CONTEMPORÁNEO",
+      "title": "HOJA DE JUECEO CONTEMPO",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Conocimiento Y Dominio Del Genero",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Diseño Coreográfico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Transiciones (Sentido Practico) Y Sincronía",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Originalidad Y Creatividad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Líneas Corporales, Colocación",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Fuerza, Control Corporal",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Floorwork",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Fluidez Y Calidad En La Tecnica De Giro Y Salto",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Limpieza De La Ejecución, Matiz Y Movimiento Orgánico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 11,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Incorporación De Skills",
+          "maxScore": 5.0
+        },
+        {
+          "id": 12,
+          "section": "PERFORMANCE",
+          "label": "Interpretación, Proyección Y Conexión Con El Público",
+          "maxScore": 4.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , Calidad Y Edición )",
+          "maxScore": 4.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Maquillaje Y Vestuario",
+          "maxScore": 4.0
+        },
+        {
+          "id": 15,
+          "section": "PERFORMANCE",
+          "label": "Uso Y Manejo De Accesorios",
+          "maxScore": 3.0
+        }
+      ]
+    },
+    {
+      "genre": "BALLET",
+      "title": "HOJA DE JUECEO BALLET",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Conocimiento Y Dominio Del Genero",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Diseño Coreografico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Transiciones ( Sentido Practico) Y Sincronia",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Originalidad Y Creatividad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "TÉCNICA",
+          "label": "* Repertorio ( Apego A Coreografia Original )",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Líneas  Corporales, Colocación Y Control Del  Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Tecnica De Giros Y Saltos",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Tecnica De Puntas",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Fluidez, Calidad Y Elegancia De Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 11,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Fuerza Y Control",
+          "maxScore": 5.0
+        },
+        {
+          "id": 12,
+          "section": "PERFORMANCE",
+          "label": "Interpretación, Proyección Y Conexión Con El Público",
+          "maxScore": 5.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , Calidad Y Edición )",
+          "maxScore": 4.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Maquillaje Y Vestuario",
+          "maxScore": 3.0
+        },
+        {
+          "id": 15,
+          "section": "PERFORMANCE",
+          "label": "Uso Y Manejo De Accesorios",
+          "maxScore": 3.0
+        }
+      ]
+    },
+    {
+      "genre": "ACROJAZZ",
+      "title": "HOJA DE JUECEO ACROJAZZ",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Conocimiento Y Dominio Del Genero",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Diseño Coreográfico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Balance Entre Técnica Jazz Y Acrobacia",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Transiciones (Sentido Practico) Y Sincronía",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "TÉCNICA",
+          "label": "Originalidad Y Creatividad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Líneas Corporales, Colocación Y Control Del Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Dominio De Ejecuciones Acrobáticas",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Dominio De Técnica Jazz",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Grado De Dificultad General",
+          "maxScore": 5.0
+        },
+        {
+          "id": 11,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Limpieza De Ejecución Y Fluidez - Precisión Del Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 12,
+          "section": "PERFORMANCE",
+          "label": "Interpretación, Proyección Y Conexión Con El Público",
+          "maxScore": 4.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , Calidad Y Edición )",
+          "maxScore": 4.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Maquillaje Y Vestuario",
+          "maxScore": 4.0
+        },
+        {
+          "id": 15,
+          "section": "PERFORMANCE",
+          "label": "Uso Y Manejo De Accesorios",
+          "maxScore": 3.0
+        }
+      ]
+    },
+    {
+      "genre": "LÍRICO",
+      "title": "HOJA DE JUECEO LÍRICO",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Conocimiento Y Dominio Del Genero",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Diseño Coreográfico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Transiciones (Sentido Practico) Y Sincronía",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Originalidad Y Creatividad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Líneas Corporales, Colocación",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Fuerza, Control Corporal",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Grado de dificultad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Fluidez Y Precisión del Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Limpieza De La Ejecución",
+          "maxScore": 5.0
+        },
+        {
+          "id": 11,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Manejo De La Energia",
+          "maxScore": 5.0
+        },
+        {
+          "id": 12,
+          "section": "PERFORMANCE",
+          "label": "Interpretación, Proyección Y Conexión Con El Público",
+          "maxScore": 4.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , Calidad Y Edición )",
+          "maxScore": 4.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Maquillaje Y Vestuario",
+          "maxScore": 4.0
+        },
+        {
+          "id": 15,
+          "section": "PERFORMANCE",
+          "label": "Uso Y Manejo De Accesorios",
+          "maxScore": 3.0
+        }
+      ]
+    },
+    {
+      "genre": "BELLYDANCE",
+      "title": "HOJA DE JUECEO BELLY DANCE",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Conocimiento Y Dominio Del Genero",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Diseño Coreográfico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Transiciones (Sentido Practico) Y Sincronía",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Originalidad Y Creatividad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Calidad Y Fluidez De Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Tecnica Y Dominio Del Estilo",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Limpieza De La Ejecucion",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN DANCÍSTICA",
+          "label": "Manejo De Implementos ( Alas, Velo, Sable, Abanicos Etc )",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "PERFORMANCE",
+          "label": "Interpretación",
+          "maxScore": 5.0
+        },
+        {
+          "id": 11,
+          "section": "PERFORMANCE",
+          "label": "Proyección Y Conexión Con El Público",
+          "maxScore": 5.0
+        },
+        {
+          "id": 12,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , Calidad Y Edición )",
+          "maxScore": 5.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Maquillaje Y Vestuario",
+          "maxScore": 5.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Manejo De La Energia",
+          "maxScore": 5.0
+        }
+      ]
+    },
+    {
+      "genre": "HIP HOP",
+      "title": "HOJA DE JUECEO HIP HOP",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Dominio Del Genero Y Estilos",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Creatividad Y Originalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Diseño Coreografico",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Transiciones ( Sentido Practico) Y Sincronia",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Ejecucion De La Tecnica O Estilo",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Calidad De Movimiento",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Fuerza Y Control",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Incorporacion De Skills",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Fluidez, Limpieza Y Calidad De Movimiento",
+          "maxScore": 4.0
+        },
+        {
+          "id": 11,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Manejo De La Energia",
+          "maxScore": 4.0
+        },
+        {
+          "id": 12,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Floorwork",
+          "maxScore": 4.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Interpretación, Proyección Y Conexión Con El Público",
+          "maxScore": 4.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , Calidad Y Edición )",
+          "maxScore": 3.0
+        },
+        {
+          "id": 15,
+          "section": "PERFORMANCE",
+          "label": "Maquillaje Y Vestuario",
+          "maxScore": 3.0
+        },
+        {
+          "id": 16,
+          "section": "PERFORMANCE",
+          "label": "Uso Y Manejo De Accesorios",
+          "maxScore": 3.0
+        }
+      ]
+    },
+    {
+      "genre": "DANZA AEREA",
+      "title": "HOJA DE JUECEO DANZA AÉREA",
+      "maxScore": 70.0,
+      "criteria": [
+        {
+          "id": 1,
+          "section": "TÉCNICA",
+          "label": "Dominio y equilibrio en el elemento.",
+          "maxScore": 5.0
+        },
+        {
+          "id": 2,
+          "section": "TÉCNICA",
+          "label": "Complejidad de los movimientos y secuencias (acorde a la división)",
+          "maxScore": 5.0
+        },
+        {
+          "id": 3,
+          "section": "TÉCNICA",
+          "label": "Manejo de fuerza",
+          "maxScore": 5.0
+        },
+        {
+          "id": 4,
+          "section": "TÉCNICA",
+          "label": "Dominio de flexibilidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 5,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Trabajo de danza y/o acrobático en piso",
+          "maxScore": 5.0
+        },
+        {
+          "id": 6,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Destreza y Fluidez de movimientos",
+          "maxScore": 5.0
+        },
+        {
+          "id": 7,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Presentación y alineación corporal",
+          "maxScore": 5.0
+        },
+        {
+          "id": 8,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Transiciones limpias y orgánicas",
+          "maxScore": 5.0
+        },
+        {
+          "id": 9,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Movimientos sincronizados",
+          "maxScore": 5.0
+        },
+        {
+          "id": 10,
+          "section": "EJECUCIÓN COREOGRÁFICA",
+          "label": "Musicalidad",
+          "maxScore": 5.0
+        },
+        {
+          "id": 11,
+          "section": "PERFORMANCE",
+          "label": "Interpretación acorde al tema seleccionado",
+          "maxScore": 5.0
+        },
+        {
+          "id": 12,
+          "section": "PERFORMANCE",
+          "label": "Musicalización ( Selección , calidad y Edición )",
+          "maxScore": 5.0
+        },
+        {
+          "id": 13,
+          "section": "PERFORMANCE",
+          "label": "Impacto visual: Maquillaje y vestuario",
+          "maxScore": 4.0
+        },
+        {
+          "id": 14,
+          "section": "PERFORMANCE",
+          "label": "Uso Y Manejo De Accesorios",
+          "maxScore": 3.0
+        },
+        {
+          "id": 15,
+          "section": "PERFORMANCE",
+          "label": "Ejecución completa de Obligatorios",
+          "maxScore": 3.0
+        }
+      ]
+    }
+  ],
+  "judges": [
+    "DAVE",
+    "EVA",
+    "DANIEL",
+    "ATI"
+  ],
+  "judgeProfiles": [
+    {
+      "judgeID": "dave",
+      "name": "DAVE",
+      "role": "judge"
+    },
+    {
+      "judgeID": "eva",
+      "name": "EVA",
+      "role": "judge"
+    },
+    {
+      "judgeID": "daniel",
+      "name": "DANIEL",
+      "role": "judge"
+    },
+    {
+      "judgeID": "ati",
+      "name": "ATI",
+      "role": "admin"
+    }
+  ]
+}

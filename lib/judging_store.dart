@@ -1,12 +1,15 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 import 'supabase_api.dart';
 
 enum SyncState { localOnly, connecting, online, syncing, pending, offline }
+
+const bundledAppDataAsset = 'assets/data/app_data.json';
 
 class ExcelImportSummary {
   ExcelImportSummary({
@@ -39,14 +42,17 @@ class JudgingStore extends ChangeNotifier {
   String syncMessage = '';
   final Map<String, double> scores = {};
   final Map<String, String> feedback = {};
+  final Map<String, double> penalties = {};
   final Map<String, String> favoriteSelections = {};
   final Set<String> pendingScoreKeys = {};
   final Set<String> pendingFeedbackKeys = {};
+  final Set<String> pendingPenaltyKeys = {};
   final Set<String> pendingFavoriteKeys = {};
 
   int get pendingCount =>
       pendingScoreKeys.length +
       pendingFeedbackKeys.length +
+      pendingPenaltyKeys.length +
       pendingFavoriteKeys.length;
   List<Routine> get routines => appData?.routines ?? const [];
   List<DanceBlock> get blocks => appData?.blocks ?? const [];
@@ -143,19 +149,26 @@ class JudgingStore extends ChangeNotifier {
     selectedBlockId = _prefs?.getString('selectedBlockId');
     scores.addAll(_decodeDoubleMap(_prefs?.getString('scores') ?? '{}'));
     feedback.addAll(_decodeStringMap(_prefs?.getString('feedback') ?? '{}'));
+    penalties.addAll(_decodeDoubleMap(_prefs?.getString('penalties') ?? '{}'));
     favoriteSelections.addAll(
         _decodeStringMap(_prefs?.getString('favoriteSelections') ?? '{}'));
     pendingScoreKeys
         .addAll(_prefs?.getStringList('pendingScoreKeys') ?? const []);
     pendingFeedbackKeys
         .addAll(_prefs?.getStringList('pendingFeedbackKeys') ?? const []);
+    pendingPenaltyKeys
+        .addAll(_prefs?.getStringList('pendingPenaltyKeys') ?? const []);
     pendingFavoriteKeys
         .addAll(_prefs?.getStringList('pendingFavoriteKeys') ?? const []);
 
+    await _loadBundledAppData();
+    _normalizeCurrentSelection();
+
     if (!api.isConfigured) {
       syncState = SyncState.localOnly;
-      syncMessage =
-          'Configura SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY con --dart-define.';
+      syncMessage = appData == null || routines.isEmpty
+          ? 'Configura SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY con --dart-define.'
+          : 'Modo local con datos embebidos.';
       notifyListeners();
       return;
     }
@@ -222,6 +235,14 @@ class JudgingStore extends ChangeNotifier {
           feedback[key] = remoteFeedback.body;
         }
       }
+      for (final remotePenalty in bundle.penalties) {
+        final judge = judgeById[remotePenalty.judgeId];
+        if (judge == null) continue;
+        final key = penaltyKey(remotePenalty.routineId, judge);
+        if (!pendingPenaltyKeys.contains(key)) {
+          penalties[key] = remotePenalty.value.clamp(-100, 0).toDouble();
+        }
+      }
       final eventPrefix = '${event.id}::';
       final staleFavoriteKeys = favoriteSelections.keys.where((key) {
         return key.startsWith(eventPrefix) &&
@@ -276,6 +297,10 @@ class JudgingStore extends ChangeNotifier {
     return '$routineId::${normalizedKey(judge)}';
   }
 
+  String penaltyKey(String routineId, String judge) {
+    return '$routineId::${normalizedKey(judge)}';
+  }
+
   String favoriteKey(
     FavoriteCategory category, {
     String? judge,
@@ -291,6 +316,10 @@ class JudgingStore extends ChangeNotifier {
 
   double scoreFor(Routine routine, String judge, Criterion criterion) {
     return scores[scoreKey(routine.id, judge, criterion.id)] ?? 0;
+  }
+
+  double penaltyFor(Routine routine, String judge) {
+    return penalties[penaltyKey(routine.id, judge)] ?? 0;
   }
 
   bool isFavorite(Routine routine, FavoriteCategory category, {String? judge}) {
@@ -328,6 +357,21 @@ class JudgingStore extends ChangeNotifier {
     }
     _prefs?.setString('selectedJudge', judge);
     notifyListeners();
+  }
+
+  void addJudge(String name) {
+    final cleanName = name.trim().toUpperCase();
+    if (cleanName.isEmpty || judges.contains(cleanName) || appData == null) {
+      return;
+    }
+    appData!.judges.add(cleanName);
+    appData!.judgeProfiles.add(JudgeProfile(
+      judgeId: stableRemoteId(cleanName),
+      name: cleanName,
+      role:
+          stableRemoteId(cleanName) == 'ati' ? UserRole.admin : UserRole.judge,
+    ));
+    selectJudge(cleanName);
   }
 
   UserRole roleFor(String judge) {
@@ -407,8 +451,12 @@ class JudgingStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> submitScores(Routine routine, Map<int, double> values,
-      {String? judge}) async {
+  Future<void> submitScores(
+    Routine routine,
+    Map<int, double> values, {
+    String? judge,
+    double? penalty,
+  }) async {
     final activeJudge = judge ?? scoringJudge;
     final template = templateFor(routine);
     final maxByCriterion = {
@@ -420,6 +468,11 @@ class JudgingStore extends ChangeNotifier {
       final key = scoreKey(routine.id, activeJudge, entry.key);
       scores[key] = entry.value.clamp(0, maxScore).toDouble();
       pendingScoreKeys.add(key);
+    }
+    if (penalty != null) {
+      final key = penaltyKey(routine.id, activeJudge);
+      penalties[key] = penalty.clamp(-100, 0).toDouble();
+      pendingPenaltyKeys.add(key);
     }
     await _persistAll();
     syncState = SyncState.pending;
@@ -527,6 +580,21 @@ class JudgingStore extends ChangeNotifier {
       await api.upsertFeedback(eventID, feedbackRows);
       pendingFeedbackKeys.clear();
 
+      final penaltyRows = <Map<String, dynamic>>[];
+      for (final key in pendingPenaltyKeys) {
+        final parts = key.split('::');
+        if (parts.length != 2) continue;
+        penaltyRows.add({
+          'event_id': eventID,
+          'routine_id': parts[0],
+          'judge_id': stableRemoteId(parts[1]),
+          'value': penalties[key] ?? 0,
+          'device_id': 'android-tablet',
+        });
+      }
+      await api.upsertPenalties(eventID, penaltyRows);
+      pendingPenaltyKeys.clear();
+
       final favoriteKeys = Set<String>.from(pendingFavoriteKeys);
       final favoriteUpsertRows = <Map<String, dynamic>>[];
       final favoriteDeleteRows = <Map<String, dynamic>>[];
@@ -581,16 +649,28 @@ class JudgingStore extends ChangeNotifier {
   RoutineResult resultFor(Routine routine) {
     final template = templateFor(routine);
     final totals = <String, double>{};
+    final penaltyValues = <String, double>{};
+    var submittedCount = 0;
+    var finalSum = 0.0;
+    var penaltyTotal = 0.0;
     for (final judge in judges) {
-      totals[judge] = template.criteria.fold<double>(
+      final subtotal = template.criteria.fold<double>(
         0,
         (sum, criterion) => sum + scoreFor(routine, judge, criterion),
       );
+      final penalty = penaltyFor(routine, judge);
+      final finalTotal = subtotal > 0
+          ? (subtotal + penalty).clamp(0, double.infinity).toDouble()
+          : 0.0;
+      totals[judge] = finalTotal;
+      penaltyValues[judge] = penalty;
+      if (subtotal > 0) {
+        submittedCount += 1;
+        finalSum += finalTotal;
+        penaltyTotal += penalty;
+      }
     }
-    final submitted = totals.values.where((value) => value > 0).toList();
-    final total = submitted.isEmpty
-        ? 0.0
-        : submitted.reduce((a, b) => a + b) / submitted.length;
+    final total = submittedCount == 0 ? 0.0 : finalSum / submittedCount;
     final maxScore = template.maxScore > 0
         ? template.maxScore
         : template.criteria
@@ -598,7 +678,9 @@ class JudgingStore extends ChangeNotifier {
     return RoutineResult(
       routine: routine,
       judgeTotals: totals,
+      judgePenalties: penaltyValues,
       total: total,
+      penalty: penaltyTotal,
       maxScore: maxScore,
     );
   }
@@ -606,6 +688,7 @@ class JudgingStore extends ChangeNotifier {
   Future<void> _persistAll() async {
     await _prefs?.setString('scores', jsonEncode(scores));
     await _prefs?.setString('feedback', jsonEncode(feedback));
+    await _prefs?.setString('penalties', jsonEncode(penalties));
     await _prefs?.setString(
         'favoriteSelections', jsonEncode(favoriteSelections));
     await _prefs?.setStringList(
@@ -613,7 +696,24 @@ class JudgingStore extends ChangeNotifier {
     await _prefs?.setStringList(
         'pendingFeedbackKeys', pendingFeedbackKeys.toList()..sort());
     await _prefs?.setStringList(
+        'pendingPenaltyKeys', pendingPenaltyKeys.toList()..sort());
+    await _prefs?.setStringList(
         'pendingFavoriteKeys', pendingFavoriteKeys.toList()..sort());
+  }
+
+  Future<void> _loadBundledAppData() async {
+    try {
+      final raw = await rootBundle.loadString(bundledAppDataAsset);
+      appData = AppData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      appData ??= AppData(
+        sourceName: 'Sin datos',
+        blocks: const [],
+        routines: const [],
+        templates: const [],
+        judges: const ['JUEZ'],
+      );
+    }
   }
 
   void _normalizeCurrentSelection() {

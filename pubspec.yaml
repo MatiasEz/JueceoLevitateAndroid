@@ -14,6 +14,7 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.4
   file_picker: ^8.1.2
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +23,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/levitate_logo.png
+    - assets/data/app_data.json

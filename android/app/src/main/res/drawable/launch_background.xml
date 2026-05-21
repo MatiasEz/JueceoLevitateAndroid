@@ -2,5 +2,5 @@
     <item android:drawable="@android:color/white" />
     <item
         android:gravity="center"
-        android:drawable="@drawable/app_icon" />
+        android:drawable="@mipmap/ic_launcher" />
 </layer-list>
