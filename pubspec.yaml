@@ -1,5 +1,5 @@
 name: jueceo_coreografias_tablet
-description: Android tablet companion for Jueceo Coreografias.
+description: Android tablet companion for Jueceo Coreografías.
 publish_to: "none"
 version: 0.1.0+1
 
@@ -25,4 +25,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/levitate_logo.png
+    - assets/images/levitate_dancer_hero.png
+    - assets/images/judge_hero_alex.jpeg
+    - assets/images/judge_hero_angela.png
+    - assets/images/judge_hero_daniel.png
+    - assets/images/judge_hero_vladimir.png
+    - assets/images/judge_hero_yoli.png
     - assets/data/app_data.json

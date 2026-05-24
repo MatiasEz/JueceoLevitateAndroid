@@ -117,8 +117,8 @@ enum FavoriteCategory {
   String get title {
     return switch (this) {
       FavoriteCategory.costume => 'Vestuario favorito',
-      FavoriteCategory.choreography => 'Coreografia favorita',
-      FavoriteCategory.music => 'Musica favorita',
+      FavoriteCategory.choreography => 'Coreografía favorita',
+      FavoriteCategory.music => 'Música favorita',
     };
   }
 
@@ -198,6 +198,7 @@ class Routine {
     required this.level,
     required this.category,
     required this.choreographer,
+    required this.participant,
     required this.state,
     required this.time,
     required this.duration,
@@ -213,6 +214,7 @@ class Routine {
   final String level;
   final String category;
   final String choreographer;
+  final String participant;
   final String state;
   final String time;
   final String duration;
@@ -229,6 +231,7 @@ class Routine {
         level: json['level'] as String? ?? '',
         category: json['category'] as String? ?? '',
         choreographer: json['choreographer'] as String? ?? '',
+        participant: json['participant'] as String? ?? '',
         state: json['state'] as String? ?? '',
         time:
             json['scheduled_time'] as String? ?? json['time'] as String? ?? '',
@@ -384,6 +387,47 @@ class FavoriteSelectionSummary {
   final Routine routine;
 }
 
+class FavoriteRankingBlock {
+  FavoriteRankingBlock({required this.blockName, required this.categories});
+
+  String get id => normalizedKey(blockName);
+  final String blockName;
+  final List<FavoriteCategoryRanking> categories;
+
+  int get totalVotes =>
+      categories.fold(0, (sum, category) => sum + category.totalVotes);
+}
+
+class FavoriteCategoryRanking {
+  FavoriteCategoryRanking({required this.category, required this.items});
+
+  String get id => category.id;
+  final FavoriteCategory category;
+  final List<FavoriteRankingItem> items;
+
+  int get totalVotes => items.fold(0, (sum, item) => sum + item.votes);
+}
+
+class FavoriteRankingItem {
+  FavoriteRankingItem({
+    required this.id,
+    required this.rank,
+    required this.category,
+    required this.blockName,
+    required this.routine,
+    required this.votes,
+    required this.judges,
+  });
+
+  final String id;
+  final int rank;
+  final FavoriteCategory category;
+  final String blockName;
+  final Routine routine;
+  final int votes;
+  final List<String> judges;
+}
+
 class RoutineResult {
   RoutineResult({
     required this.routine,
@@ -400,6 +444,9 @@ class RoutineResult {
   final double total;
   final double penalty;
   final double maxScore;
+
+  double get aggregateTotal =>
+      judgeTotals.values.fold(0, (sum, total) => sum + total);
 }
 
 String normalizedKey(String value) {

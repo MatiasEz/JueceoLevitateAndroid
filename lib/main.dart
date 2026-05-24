@@ -24,8 +24,27 @@ const addJudgeMenuValue = '__add_judge__';
 
 const levitPink = Color(0xffed2a72);
 const levitateLogoAsset = 'assets/images/levitate_logo.png';
+const levitateDancerHeroAsset = 'assets/images/levitate_dancer_hero.png';
+const judgeHeroAssets = {
+  'alex': 'assets/images/judge_hero_alex.jpeg',
+  'angela': 'assets/images/judge_hero_angela.png',
+  'daniel': 'assets/images/judge_hero_daniel.png',
+  'vladimir': 'assets/images/judge_hero_vladimir.png',
+  'yoli': 'assets/images/judge_hero_yoli.png',
+};
 const levitPaperLight = Color(0xfffbfbfd);
 const levitPaperDark = Color(0xff0b0e13);
+
+String judgeHeroAssetFor(String judge) {
+  final judgeId = stableRemoteId(judge);
+  final exact = judgeHeroAssets[judgeId];
+  if (exact != null) return exact;
+  final tokens = judgeId.split('-').toSet();
+  for (final entry in judgeHeroAssets.entries) {
+    if (tokens.contains(entry.key)) return entry.value;
+  }
+  return levitateDancerHeroAsset;
+}
 
 ThemeData levitateTheme(Brightness brightness) {
   final colorScheme = ColorScheme.fromSeed(
@@ -203,7 +222,7 @@ class JueceoTabletApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Jueceo Coreografias',
+      title: 'Jueceo Coreografías',
       theme: levitateTheme(Brightness.light),
       darkTheme: levitateTheme(Brightness.dark),
       home: AnimatedBuilder(
@@ -536,8 +555,8 @@ class SyncChip extends StatelessWidget {
       SyncState.localOnly => Colors.grey,
     };
     final label = store.pendingCount > 0
-        ? '${store.syncState.name} ${store.pendingCount}'
-        : store.syncState.name;
+        ? '${syncStateLabel(store.syncState)} · ${store.pendingCount}'
+        : syncStateLabel(store.syncState);
     return Chip(
       avatar: Icon(Icons.cloud_queue, color: color, size: 18),
       label: Text(label),
@@ -545,6 +564,17 @@ class SyncChip extends StatelessWidget {
       backgroundColor: color.withValues(alpha: 0.10),
     );
   }
+}
+
+String syncStateLabel(SyncState state) {
+  return switch (state) {
+    SyncState.localOnly => 'Modo local',
+    SyncState.connecting => 'Conectando',
+    SyncState.online => 'En línea',
+    SyncState.syncing => 'Sincronizando',
+    SyncState.pending => 'Pendiente',
+    SyncState.offline => 'Sin conexión',
+  };
 }
 
 class EventSelectorButton extends StatelessWidget {
@@ -578,7 +608,7 @@ class EventSelectorButton extends StatelessWidget {
       child: HeaderPill(
         icon: Icons.event,
         title: store.selectedEvent?.name ?? 'Evento',
-        subtitle: '${store.routines.length} coreografias',
+        subtitle: '${store.routines.length} coreografías',
       ),
     );
   }
@@ -606,7 +636,7 @@ class BlockSelectorButton extends StatelessWidget {
                   : Icons.circle_outlined),
               title: Text(block.name),
               subtitle:
-                  Text('${routineCountForBlock(store, block)} coreografias'),
+                  Text('${routineCountForBlock(store, block)} coreografías'),
             ),
           ),
       ],
@@ -830,109 +860,134 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final routines = sortedRoutines(store.visibleRoutines);
     final pending = routines
-        .where((routine) => store.resultFor(routine).total == 0)
+        .where((routine) => store.resultFor(routine).aggregateTotal == 0)
         .take(1)
         .toList();
     final preview = pending.isEmpty ? routines.take(1).toList() : pending;
-    final completed = store.rankings.where((result) => result.total > 0).length;
+    final completed =
+        store.rankings.where((result) => result.aggregateTotal > 0).length;
     final nextRoutine =
         preview.isNotEmpty ? preview.first : store.selectedRoutine;
-    final average = store.rankings.where((result) => result.total > 0).toList();
-    final averageScore = average.isEmpty
-        ? 0.0
-        : average.fold<double>(0, (sum, result) => sum + result.total) /
-            average.length;
     final syncPercent = store.pendingCount == 0
         ? 100
         : (100 - store.pendingCount * 8).clamp(0, 100);
+    final syncDetail = store.pendingCount == 0
+        ? 'Todo al día'
+        : '${store.pendingCount} pendiente${store.pendingCount == 1 ? '' : 's'}';
 
     return ListView(
       padding: const EdgeInsets.all(28),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Buenos dias,',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                              color: Theme.of(context).colorScheme.outline)),
-                  Text(
-                    store.selectedJudge.isEmpty ? 'JUEZ' : store.selectedJudge,
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        fontWeight: FontWeight.w900, color: levitPink),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final showHeroImage = constraints.maxWidth >= 620;
+            final heroWidth =
+                (constraints.maxWidth * 0.38).clamp(220.0, 330.0).toDouble();
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Buenos días,',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.outline)),
+                      Text(
+                        store.selectedJudge.isEmpty
+                            ? 'JUEZ'
+                            : store.selectedJudge,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .displayMedium
+                            ?.copyWith(
+                                fontWeight: FontWeight.w900, color: levitPink),
+                      ),
+                      Text('Estás lista para calificar.\nQue comience el flow!',
+                          style: Theme.of(context).textTheme.titleMedium),
+                    ],
                   ),
-                  Text('Estas lista para calificar.\nQue comience el flow!',
-                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                if (showHeroImage) ...[
+                  const SizedBox(width: 28),
+                  DashboardJudgeImage(
+                    judge: store.scoringJudge,
+                    width: heroWidth,
+                    height: heroWidth * 0.527,
+                  ),
                 ],
-              ),
-            ),
-            Icon(Icons.self_improvement,
-                size: 150, color: levitPink.withValues(alpha: 0.55)),
-          ],
+              ],
+            );
+          },
         ),
         const SizedBox(height: 28),
-        GridView.count(
-          crossAxisCount: 4,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: 1.75,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            MetricTile(
-                icon: Icons.calendar_month,
-                value: '$completed',
-                label: 'Calificadas',
-                detail:
-                    '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
-            MetricTile(
-                icon: Icons.timer,
-                value: nextRoutine?.time.isNotEmpty == true
-                    ? nextRoutine!.time
-                    : '00:42',
-                label: 'Proxima rutina',
-                detail: nextRoutine == null
-                    ? 'Sin rutina'
-                    : '#${nextRoutine.id} ${nextRoutine.name}'),
-            MetricTile(
-                icon: Icons.star_border,
-                value: averageScore.toStringAsFixed(2),
-                label: 'Promedio actual',
-                detail: 'Promedio general'),
-            MetricTile(
-                icon: Icons.cloud_done,
-                value: '$syncPercent%',
-                label: 'Sincronizacion',
-                detail: store.pendingCount == 0
-                    ? 'Todo al dia'
-                    : '${store.pendingCount} pendiente'),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            Widget metricsGrid() => GridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: 1.18,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    MetricTile(
+                        icon: Icons.calendar_month,
+                        value: '$completed',
+                        label: 'Calificadas',
+                        detail:
+                            '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
+                    MetricTile(
+                        icon: Icons.cloud_done,
+                        value: '$syncPercent%',
+                        label: 'Sincronización',
+                        detail: syncDetail),
+                  ],
+                );
+
+            Widget upcoming() => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Próximas coreografías'),
+                    const SizedBox(height: 10),
+                    for (final routine in preview)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: RoutineListTile(
+                          routine: routine,
+                          selected: routine.id == nextRoutine?.id,
+                          onTap: () => store.selectRoutine(routine.id),
+                        ),
+                      ),
+                  ],
+                );
+
+            if (constraints.maxWidth >= 760) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: metricsGrid()),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 3, child: upcoming()),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                metricsGrid(),
+                const SizedBox(height: 18),
+                upcoming(),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 24),
-        const SectionHeader(
-          title: 'Proximas coreografias',
-          subtitle: 'Pendientes en orden de salida',
-        ),
-        const SizedBox(height: 10),
-        for (final routine in preview)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: RoutineListTile(
-              routine: routine,
-              selected: routine.id == nextRoutine?.id,
-              trailing: FilledButton.tonalIcon(
-                onPressed: () => store.selectRoutine(routine.id),
-                icon: const Icon(Icons.visibility),
-                label: const Text('Ver detalles'),
-              ),
-            ),
-          ),
         const SizedBox(height: 18),
         Row(
           children: [
@@ -963,6 +1018,76 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class DashboardJudgeImage extends StatelessWidget {
+  const DashboardJudgeImage({
+    super.key,
+    required this.judge,
+    this.width = 330,
+    this.height = 174,
+  });
+
+  final String judge;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = colorScheme.surface;
+    final asset = judgeHeroAssetFor(judge);
+
+    return Semantics(
+      label: 'Imagen de Levitate para $judge',
+      image: true,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                asset,
+                key: ValueKey(asset),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+                filterQuality: FilterQuality.high,
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      surface.withValues(alpha: isDark ? 0.76 : 0.58),
+                      surface.withValues(alpha: isDark ? 0.18 : 0.08),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      surface.withValues(alpha: isDark ? 0.52 : 0.34),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -998,13 +1123,14 @@ class _AdminPageState extends State<AdminPage> {
     }
     final filtered = routines.where((routine) {
       final haystack =
-          '${routine.id} ${routine.name} ${routine.academy} ${routine.genre} ${routine.division} ${routine.category}'
+          '${routine.id} ${routine.name} ${routine.academy} ${routine.participant} ${routine.genre} ${routine.division} ${routine.category}'
               .toUpperCase();
       return haystack.contains(query.toUpperCase());
     }).toList();
     final selectedRoutine = firstOrNull(
         routines.where((routine) => routine.id == selectedRoutineIdForEdit));
-    final completed = store.rankings.where((result) => result.total > 0).length;
+    final completed =
+        store.rankings.where((result) => result.aggregateTotal > 0).length;
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -1051,7 +1177,7 @@ class _AdminPageState extends State<AdminPage> {
             MetricTile(
                 icon: Icons.self_improvement,
                 value: '${store.routines.length}',
-                label: 'Coreografias',
+                label: 'Coreografías',
                 detail: '$completed calificadas'),
             MetricTile(
                 icon: Icons.groups,
@@ -1062,7 +1188,7 @@ class _AdminPageState extends State<AdminPage> {
                 icon: Icons.cloud_upload,
                 value: '${store.pendingCount}',
                 label: 'Pendientes',
-                detail: store.syncState.name),
+                detail: syncStateLabel(store.syncState)),
           ],
         ),
         const SizedBox(height: 18),
@@ -1197,7 +1323,7 @@ class _AdminPageState extends State<AdminPage> {
                         OutlinedButton.icon(
                           onPressed: store.clearAdminScoringOverride,
                           icon: const Icon(Icons.close),
-                          label: const Text('Salir de edicion'),
+                          label: const Text('Salir de edición'),
                         ),
                       ],
                     ],
@@ -1210,7 +1336,7 @@ class _AdminPageState extends State<AdminPage> {
                       TextField(
                         decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.search),
-                            hintText: 'Buscar coreografia'),
+                            hintText: 'Buscar coreografía'),
                         onChanged: (value) => setState(() => query = value),
                       ),
                       const SizedBox(height: 12),
@@ -1240,7 +1366,7 @@ class _AdminPageState extends State<AdminPage> {
   Future<void> _exportDrive() async {
     setState(() {
       exportingDrive = true;
-      driveMessage = 'Preparando exportacion a Google Drive...';
+      driveMessage = 'Preparando exportación a Google Drive...';
     });
     try {
       final summary = await exportSelectedBlockToDrive(
@@ -1290,12 +1416,12 @@ class _BlocksPageState extends State<BlocksPage> {
       final result = store.resultFor(routine);
       final matchesFilter = switch (filter) {
         RoutineFilter.all => true,
-        RoutineFilter.pending => result.total == 0,
-        RoutineFilter.scored => result.total > 0,
+        RoutineFilter.pending => result.aggregateTotal == 0,
+        RoutineFilter.scored => result.aggregateTotal > 0,
         RoutineFilter.favorites => store.hasFavorite(routine),
       };
       final haystack =
-          '${routine.id} ${routine.name} ${routine.academy} ${routine.genre} ${routine.category}'
+          '${routine.id} ${routine.name} ${routine.academy} ${routine.participant} ${routine.genre} ${routine.category}'
               .toUpperCase();
       return matchesFilter && haystack.contains(query.toUpperCase());
     }).toList();
@@ -1310,7 +1436,7 @@ class _BlocksPageState extends State<BlocksPage> {
                 child: TextField(
                   decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search),
-                      hintText: 'Buscar coreografia, academia o genero'),
+                      hintText: 'Buscar coreografía, academia o género'),
                   onChanged: (value) => setState(() => query = value),
                 ),
               ),
@@ -1339,7 +1465,7 @@ class _BlocksPageState extends State<BlocksPage> {
             children: [
               SectionHeader(
                 title:
-                    'Coreografias del ${store.selectedBlock?.name.toLowerCase() ?? 'bloque'}',
+                    'Coreografías del ${store.selectedBlock?.name.toLowerCase() ?? 'bloque'}',
                 subtitle: '${filtered.length} resultados',
               ),
               const SizedBox(height: 12),
@@ -1401,21 +1527,20 @@ class PhoneHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final routines = sortedRoutines(store.visibleRoutines);
     final pending = routines
-        .where((routine) => store.resultFor(routine).total == 0)
+        .where((routine) => store.resultFor(routine).aggregateTotal == 0)
         .take(1)
         .toList();
     final preview = pending.isEmpty ? routines.take(1).toList() : pending;
-    final completed = store.rankings.where((result) => result.total > 0).length;
+    final completed =
+        store.rankings.where((result) => result.aggregateTotal > 0).length;
     final nextRoutine =
         preview.isNotEmpty ? preview.first : store.selectedRoutine;
-    final average = store.rankings.where((result) => result.total > 0).toList();
-    final averageScore = average.isEmpty
-        ? 0.0
-        : average.fold<double>(0, (sum, result) => sum + result.total) /
-            average.length;
     final syncPercent = store.pendingCount == 0
         ? 100
         : (100 - store.pendingCount * 8).clamp(0, 100);
+    final syncDetail = store.pendingCount == 0
+        ? 'Todo al día'
+        : '${store.pendingCount} pendiente${store.pendingCount == 1 ? '' : 's'}';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -1425,7 +1550,7 @@ class PhoneHomePage extends StatelessWidget {
           titleWidget: const LevitateBrand(isCompact: true),
           subtitle: store.selectedEvent?.name ??
               store.appData?.sourceName ??
-              'Jueceo coreografias',
+              'Jueceo coreografías',
           trailing: IconButton.filledTonal(
             tooltip: 'Actualizar',
             onPressed: store.refreshEvents,
@@ -1452,7 +1577,13 @@ class PhoneHomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Buenos dias,',
+                DashboardJudgeImage(
+                  judge: store.scoringJudge,
+                  width: double.infinity,
+                  height: 128,
+                ),
+                const SizedBox(height: 16),
+                Text('Buenos días,',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Theme.of(context).colorScheme.outline)),
                 Text(
@@ -1465,75 +1596,84 @@ class PhoneHomePage extends StatelessWidget {
                       ?.copyWith(fontWeight: FontWeight.w900, color: levitPink),
                 ),
                 const SizedBox(height: 4),
-                const Text('Estas lista para calificar. Que comience el flow!'),
+                const Text('Estás lista para calificar. Que comience el flow!'),
               ],
             ),
           ),
         ),
         const SizedBox(height: 14),
-        PhoneMetricGrid(
-          children: [
-            MetricTile(
-                icon: Icons.calendar_month,
-                value: '$completed',
-                label: 'Calificadas',
-                detail:
-                    '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
-            MetricTile(
-                icon: Icons.timer,
-                value: nextRoutine?.time.isNotEmpty == true
-                    ? nextRoutine!.time
-                    : '00:42',
-                label: 'Proxima rutina',
-                detail: nextRoutine == null
-                    ? 'Sin rutina'
-                    : '#${nextRoutine.id} ${nextRoutine.name}'),
-            MetricTile(
-                icon: Icons.star_border,
-                value: averageScore.toStringAsFixed(2),
-                label: 'Promedio',
-                detail: 'General'),
-            MetricTile(
-                icon: Icons.cloud_done,
-                value: '$syncPercent%',
-                label: 'Sincronizacion',
-                detail: store.pendingCount == 0
-                    ? 'Todo al dia'
-                    : '${store.pendingCount} pendiente'),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            Widget metricsGrid() => PhoneMetricGrid(
+                  children: [
+                    MetricTile(
+                        icon: Icons.calendar_month,
+                        value: '$completed',
+                        label: 'Calificadas',
+                        detail:
+                            '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
+                    MetricTile(
+                        icon: Icons.cloud_done,
+                        value: '$syncPercent%',
+                        label: 'Sincronización',
+                        detail: syncDetail),
+                  ],
+                );
+
+            Widget upcoming() => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Próximas coreografías'),
+                    const SizedBox(height: 10),
+                    if (preview.isEmpty)
+                      const PhoneEmptyCard(
+                          icon: Icons.inbox,
+                          title: 'Sin coreografías',
+                          message: 'Carga un evento para empezar.')
+                    else
+                      for (final routine in preview)
+                        PhoneRoutineCard(
+                          routine: routine,
+                          selected: routine.id == nextRoutine?.id,
+                          favorite: store.hasFavorite(routine),
+                          footer: store.isAdmin
+                              ? null
+                              : Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    onPressed: () {
+                                      store.selectRoutine(routine.id);
+                                      onNavigate(AppSection.judging);
+                                    },
+                                    icon: const Icon(Icons.fact_check),
+                                    label: const Text('Juecear'),
+                                  ),
+                                ),
+                          onTap: () => store.selectRoutine(routine.id),
+                        ),
+                  ],
+                );
+
+            if (constraints.maxWidth >= 560) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: metricsGrid()),
+                  const SizedBox(width: 12),
+                  Expanded(child: upcoming()),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                metricsGrid(),
+                const SizedBox(height: 16),
+                upcoming(),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 18),
-        const SectionHeader(
-          title: 'Proximas coreografias',
-          subtitle: 'Pendientes en orden de salida',
-        ),
-        const SizedBox(height: 10),
-        if (preview.isEmpty)
-          const PhoneEmptyCard(
-              icon: Icons.inbox,
-              title: 'Sin coreografias',
-              message: 'Carga un evento para empezar.')
-        else
-          for (final routine in preview)
-            PhoneRoutineCard(
-              routine: routine,
-              selected: routine.id == nextRoutine?.id,
-              favorite: store.hasFavorite(routine),
-              footer: store.isAdmin
-                  ? null
-                  : Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          store.selectRoutine(routine.id);
-                          onNavigate(AppSection.judging);
-                        },
-                        icon: const Icon(Icons.fact_check),
-                        label: const Text('Juecear'),
-                      ),
-                    ),
-              onTap: () => store.selectRoutine(routine.id),
-            ),
         const SizedBox(height: 12),
         if (!store.isAdmin)
           FilledButton.icon(
@@ -1597,13 +1737,14 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
     }
     final filtered = routines.where((routine) {
       final haystack =
-          '${routine.id} ${routine.name} ${routine.academy} ${routine.genre} ${routine.division} ${routine.category}'
+          '${routine.id} ${routine.name} ${routine.academy} ${routine.participant} ${routine.genre} ${routine.division} ${routine.category}'
               .toUpperCase();
       return haystack.contains(query.toUpperCase());
     }).toList();
     final selectedRoutine = firstOrNull(
         routines.where((routine) => routine.id == selectedRoutineIdForEdit));
-    final completed = store.rankings.where((result) => result.total > 0).length;
+    final completed =
+        store.rankings.where((result) => result.aggregateTotal > 0).length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -1639,7 +1780,7 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
             MetricTile(
                 icon: Icons.self_improvement,
                 value: '${store.routines.length}',
-                label: 'Coreografias',
+                label: 'Coreografías',
                 detail: '$completed calificadas'),
             MetricTile(
                 icon: Icons.groups,
@@ -1650,7 +1791,7 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
                 icon: Icons.cloud_upload,
                 value: '${store.pendingCount}',
                 label: 'Pendientes',
-                detail: store.syncState.name),
+                detail: syncStateLabel(store.syncState)),
           ],
         ),
         const SizedBox(height: 16),
@@ -1728,7 +1869,7 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
         const SizedBox(height: 22),
         const SectionHeader(
             title: 'Editar como juez',
-            subtitle: 'Abrir una hoja de jueceo especifica'),
+            subtitle: 'Abrir una hoja de jueceo específica'),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           key: ValueKey(selectedJudgeForEdit),
@@ -1770,18 +1911,18 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
           OutlinedButton.icon(
             onPressed: store.clearAdminScoringOverride,
             icon: const Icon(Icons.close),
-            label: const Text('Salir de edicion'),
+            label: const Text('Salir de edición'),
           ),
         ],
         const SizedBox(height: 22),
         TextField(
           decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search), hintText: 'Buscar coreografia'),
+              prefixIcon: Icon(Icons.search), hintText: 'Buscar coreografía'),
           onChanged: (value) => setState(() => query = value),
         ),
         const SizedBox(height: 14),
         SectionHeader(
-            title: 'Coreografias', subtitle: '${filtered.length} resultados'),
+            title: 'Coreografías', subtitle: '${filtered.length} resultados'),
         const SizedBox(height: 10),
         for (final routine in filtered)
           PhoneRoutineCard(
@@ -1808,7 +1949,7 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
   Future<void> _exportDrive() async {
     setState(() {
       exportingDrive = true;
-      driveMessage = 'Preparando exportacion a Google Drive...';
+      driveMessage = 'Preparando exportación a Google Drive...';
     });
     try {
       final summary = await exportSelectedBlockToDrive(
@@ -1858,12 +1999,12 @@ class _PhoneBlocksPageState extends State<PhoneBlocksPage> {
       final result = store.resultFor(routine);
       final matchesFilter = switch (filter) {
         RoutineFilter.all => true,
-        RoutineFilter.pending => result.total == 0,
-        RoutineFilter.scored => result.total > 0,
+        RoutineFilter.pending => result.aggregateTotal == 0,
+        RoutineFilter.scored => result.aggregateTotal > 0,
         RoutineFilter.favorites => store.hasFavorite(routine),
       };
       final haystack =
-          '${routine.id} ${routine.name} ${routine.academy} ${routine.genre} ${routine.category}'
+          '${routine.id} ${routine.name} ${routine.academy} ${routine.participant} ${routine.genre} ${routine.category}'
               .toUpperCase();
       return matchesFilter && haystack.contains(query.toUpperCase());
     }).toList();
@@ -1884,7 +2025,7 @@ class _PhoneBlocksPageState extends State<PhoneBlocksPage> {
         TextField(
           decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Buscar coreografia, academia o genero'),
+              hintText: 'Buscar coreografía, academia o género'),
           onChanged: (value) => setState(() => query = value),
         ),
         const SizedBox(height: 12),
@@ -1908,7 +2049,7 @@ class _PhoneBlocksPageState extends State<PhoneBlocksPage> {
         const SizedBox(height: 18),
         SectionHeader(
           title:
-              'Coreografias del ${store.selectedBlock?.name.toLowerCase() ?? 'bloque'}',
+              'Coreografías del ${store.selectedBlock?.name.toLowerCase() ?? 'bloque'}',
           subtitle: '${filtered.length} resultados',
         ),
         const SizedBox(height: 10),
@@ -1916,7 +2057,7 @@ class _PhoneBlocksPageState extends State<PhoneBlocksPage> {
           const PhoneEmptyCard(
               icon: Icons.search_off,
               title: 'Sin resultados',
-              message: 'Proba con otro filtro o busqueda.')
+              message: 'Probá con otro filtro o búsqueda.')
         else
           for (final routine in filtered)
             PhoneRoutineCard(
@@ -1948,16 +2089,9 @@ class PhoneFavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final favorites = store.favoriteSummaries;
-    final groupedFavorites = [
-      for (final category in FavoriteCategory.values)
-        (
-          category: category,
-          items: favorites
-              .where((favorite) => favorite.category == category)
-              .toList()
-        ),
-    ].where((group) => group.items.isNotEmpty).toList();
+    final rankingBlocks = store.favoriteRankingBlocks;
+    final totalVotes =
+        rankingBlocks.fold(0, (sum, block) => sum + block.totalVotes);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -1976,8 +2110,8 @@ class PhoneFavoritesPage extends StatelessWidget {
           children: [
             MetricTile(
               icon: Icons.star,
-              value: '${favorites.length}',
-              label: 'Total',
+              value: '$totalVotes',
+              label: 'Votos',
               detail: store.pendingCount == 0
                   ? 'Sin pendientes'
                   : '${store.pendingCount} por subir',
@@ -1985,32 +2119,21 @@ class PhoneFavoritesPage extends StatelessWidget {
             for (final category in FavoriteCategory.values)
               MetricTile(
                 icon: favoriteCategoryIcon(category),
-                value:
-                    '${favorites.where((favorite) => favorite.category == category).length}',
+                value: '${favoriteVoteCount(rankingBlocks, category)}',
                 label: category.title,
-                detail: 'Marcadas',
+                detail: 'Top por bloque',
               ),
           ],
         ),
         const SizedBox(height: 18),
-        if (favorites.isEmpty)
+        if (rankingBlocks.isEmpty)
           const PhoneEmptyCard(
               icon: Icons.star_border,
-              title: 'Todavia no hay favoritos',
-              message:
-                  'Cuando un juez marque vestuario, coreografia o musica, aparece aca.')
+              title: 'Todavía no hay favoritos',
+              message: 'El top 3 de cada bloque aparece acá.')
         else
-          for (final group in groupedFavorites) ...[
-            SectionHeader(
-              title: group.category.title,
-              subtitle:
-                  '${group.items.length} seleccion${group.items.length == 1 ? '' : 'es'}',
-            ),
-            const SizedBox(height: 10),
-            for (final favorite in group.items)
-              PhoneFavoriteTile(favorite: favorite),
-            const SizedBox(height: 18),
-          ],
+          for (final block in rankingBlocks)
+            PhoneFavoriteRankingBlock(block: block),
       ],
     );
   }
@@ -2023,16 +2146,9 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final favorites = store.favoriteSummaries;
-    final groupedFavorites = [
-      for (final category in FavoriteCategory.values)
-        (
-          category: category,
-          items: favorites
-              .where((favorite) => favorite.category == category)
-              .toList()
-        ),
-    ].where((group) => group.items.isNotEmpty).toList();
+    final rankingBlocks = store.favoriteRankingBlocks;
+    final totalVotes =
+        rankingBlocks.fold(0, (sum, block) => sum + block.totalVotes);
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -2072,8 +2188,8 @@ class FavoritesPage extends StatelessWidget {
           children: [
             MetricTile(
               icon: Icons.star,
-              value: '${favorites.length}',
-              label: 'Total',
+              value: '$totalVotes',
+              label: 'Votos',
               detail: store.pendingCount == 0
                   ? 'Sin pendientes'
                   : '${store.pendingCount} por subir',
@@ -2081,15 +2197,14 @@ class FavoritesPage extends StatelessWidget {
             for (final category in FavoriteCategory.values)
               MetricTile(
                 icon: favoriteCategoryIcon(category),
-                value:
-                    '${favorites.where((favorite) => favorite.category == category).length}',
+                value: '${favoriteVoteCount(rankingBlocks, category)}',
                 label: category.title,
-                detail: 'Favoritos marcados',
+                detail: 'Top por bloque',
               ),
           ],
         ),
         const SizedBox(height: 24),
-        if (favorites.isEmpty)
+        if (rankingBlocks.isEmpty)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(22),
@@ -2106,10 +2221,9 @@ class FavoritesPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Todavia no hay favoritos',
+                        Text('Todavía no hay favoritos',
                             style: TextStyle(fontWeight: FontWeight.w900)),
-                        Text(
-                            'Cuando un juez marque vestuario, coreografia o musica, va a aparecer aca.'),
+                        Text('El top 3 de cada bloque va a aparecer acá.'),
                       ],
                     ),
                   ),
@@ -2118,29 +2232,181 @@ class FavoritesPage extends StatelessWidget {
             ),
           )
         else
-          for (final group in groupedFavorites) ...[
+          for (final block in rankingBlocks) ...[
             SectionHeader(
-              title: group.category.title,
+              title: block.blockName,
               subtitle:
-                  '${group.items.length} seleccion${group.items.length == 1 ? '' : 'es'}',
+                  '${block.totalVotes} voto${block.totalVotes == 1 ? '' : 's'}',
             ),
             const SizedBox(height: 10),
             GridView.builder(
-              itemCount: group.items.length,
+              itemCount: block.categories.length,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 420,
+                maxCrossAxisExtent: 460,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 2.45,
+                childAspectRatio: 1.34,
               ),
-              itemBuilder: (context, index) =>
-                  FavoriteSummaryCard(favorite: group.items[index]),
+              itemBuilder: (context, index) => FavoriteCategoryRankingCard(
+                ranking: block.categories[index],
+              ),
             ),
             const SizedBox(height: 22),
           ],
       ],
+    );
+  }
+}
+
+class PhoneFavoriteRankingBlock extends StatelessWidget {
+  const PhoneFavoriteRankingBlock({super.key, required this.block});
+
+  final FavoriteRankingBlock block;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: block.blockName,
+            subtitle:
+                '${block.totalVotes} voto${block.totalVotes == 1 ? '' : 's'}',
+          ),
+          const SizedBox(height: 10),
+          for (final ranking in block.categories)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: FavoriteCategoryRankingCard(ranking: ranking),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class FavoriteCategoryRankingCard extends StatelessWidget {
+  const FavoriteCategoryRankingCard({super.key, required this.ranking});
+
+  final FavoriteCategoryRanking ranking;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(favoriteCategoryIcon(ranking.category), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ranking.category.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (ranking.items.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.44),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Sin votos',
+                    style: TextStyle(
+                        color: colorScheme.outline,
+                        fontWeight: FontWeight.w800)),
+              )
+            else
+              for (final item in ranking.items) ...[
+                FavoriteRankingRow(item: item),
+                if (item != ranking.items.last) const SizedBox(height: 8),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FavoriteRankingRow extends StatelessWidget {
+  const FavoriteRankingRow({super.key, required this.item});
+
+  final FavoriteRankingItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isWinner = item.rank == 1;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isWinner
+            ? levitPink.withValues(alpha: 0.12)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 17,
+            backgroundColor:
+                isWinner ? levitPink : colorScheme.primaryContainer,
+            foregroundColor:
+                isWinner ? Colors.white : colorScheme.onPrimaryContainer,
+            child: Text('${item.rank}',
+                style: const TextStyle(fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.routine.academy.isEmpty
+                      ? item.routine.name
+                      : item.routine.academy,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  '#${item.routine.id} ${item.routine.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${item.votes}',
+                  style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text('voto${item.votes == 1 ? '' : 's'}',
+                  style: Theme.of(context).textTheme.labelSmall),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2183,7 +2449,7 @@ class FavoriteSummaryCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w900)),
-                      Text(favorite.routine.academy,
+                      Text(routineDetailLine(favorite.routine),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
@@ -2397,7 +2663,7 @@ class RoutinePickerCard extends StatelessWidget {
                     ? routine.id
                     : null,
                 decoration:
-                    const InputDecoration(labelText: 'Coreografia del bloque'),
+                    const InputDecoration(labelText: 'Coreografía del bloque'),
                 items: [
                   for (final item in routines)
                     DropdownMenuItem(
@@ -2511,7 +2777,7 @@ class _ScoreCriterionLabel extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 3),
-              Text('0 a ${_integerMaxScore(criterion.maxScore)} puntos',
+              Text('0 a ${_scoreText(criterion.maxScore)} puntos',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: colorScheme.outline, fontWeight: FontWeight.w800)),
             ],
@@ -2544,9 +2810,11 @@ class _ScoreStepperControls extends StatelessWidget {
     final input = TextField(
       controller: controller,
       textAlign: TextAlign.center,
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      maxLength: _integerMaxScore(criterion.maxScore).toString().length,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+      ],
+      maxLength: _scoreMaxLength(criterion.maxScore),
       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
         fontWeight: FontWeight.w900,
         fontFeatures: const [FontFeature.tabularFigures()],
@@ -2631,7 +2899,7 @@ class _JudgingPageState extends State<JudgingPage> {
     if (routine == null) {
       return const EmptyState(
           icon: Icons.inbox,
-          title: 'Sin coreografias',
+          title: 'Sin coreografías',
           message: 'Carga un evento para empezar.');
     }
     final scoringJudge = store.scoringJudge;
@@ -2781,7 +3049,7 @@ class _JudgingPageState extends State<JudgingPage> {
                       .textTheme
                       .headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w900)),
-              Text(routine.academy,
+              Text(routineDetailLine(routine),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -2812,7 +3080,7 @@ class _JudgingPageState extends State<JudgingPage> {
                       .textTheme
                       .titleLarge
                       ?.copyWith(fontWeight: FontWeight.w900)),
-              Text('Coreografias',
+              Text('Coreografías',
                   style: Theme.of(context).textTheme.labelMedium),
               const SizedBox(height: 6),
               LinearProgressIndicator(
@@ -2835,6 +3103,7 @@ class _JudgingPageState extends State<JudgingPage> {
     required double maxTotal,
     required Routine? nextRoutine,
   }) {
+    final hasIncompleteScores = _hasIncompleteScores(template);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -2853,48 +3122,61 @@ class _JudgingPageState extends State<JudgingPage> {
                     fontWeight: FontWeight.w900,
                   ),
             ),
+            if (hasIncompleteScores) ...[
+              const SizedBox(height: 6),
+              Text('Asegúrate de llenar todos los campos',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(color: Theme.of(context).colorScheme.outline)),
+            ],
             if (penaltyValue != 0)
               Text(
-                  'Subtotal ${_scoreText(scoreSubtotal)} · Penalizacion ${_scoreText(penaltyValue)}'),
+                  'Subtotal ${_scoreText(scoreSubtotal)} · Penalización ${_scoreText(penaltyValue)}'),
             if (errorMessage != null) ...[
               const SizedBox(height: 8),
               Text(errorMessage!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  _save(routine, template, advance: false);
-                },
-                icon: const Icon(Icons.save),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Guardar'),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: nextRoutine == null
-                    ? null
-                    : () {
-                        _save(routine, template, advance: true);
-                      },
-                icon: const Icon(Icons.arrow_forward),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Guardar y siguiente'),
-                ),
-              ),
+            _buildSaveButton(
+              routine: routine,
+              template: template,
+              hasNextRoutine: nextRoutine != null,
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildSaveButton({
+    required Routine routine,
+    required JudgingTemplate template,
+    required bool hasNextRoutine,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () {
+          _save(routine, template, advance: hasNextRoutine);
+        },
+        icon: Icon(hasNextRoutine ? Icons.arrow_forward : Icons.save),
+        label: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(hasNextRoutine ? 'Guardar y siguiente' : 'Guardar'),
+        ),
+      ),
+    );
+  }
+
+  bool _hasIncompleteScores(JudgingTemplate template) {
+    for (final criterion in template.criteria) {
+      if ((controllers[criterion.id]?.text.trim() ?? '').isEmpty) {
+        return true;
+      }
+    }
+    return false;
   }
 
   List<Widget> _buildCriteriaSections(JudgingTemplate template,
@@ -2953,6 +3235,7 @@ class _JudgingPageState extends State<JudgingPage> {
     final currentPosition = currentIndex >= 0 ? currentIndex + 1 : 1;
     final progress =
         maxTotal <= 0 ? 0.0 : (total / maxTotal).clamp(0.0, 1.0).toDouble();
+    final hasIncompleteScores = _hasIncompleteScores(template);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
@@ -3016,7 +3299,7 @@ class _JudgingPageState extends State<JudgingPage> {
               if (penaltyValue != 0) ...[
                 const SizedBox(height: 4),
                 Text(
-                    'Subtotal ${_scoreText(scoreSubtotal)} · Penalizacion ${_scoreText(penaltyValue)}'),
+                    'Subtotal ${_scoreText(scoreSubtotal)} · Penalización ${_scoreText(penaltyValue)}'),
               ],
               const SizedBox(height: 8),
               LinearProgressIndicator(value: progress),
@@ -3065,9 +3348,15 @@ class _JudgingPageState extends State<JudgingPage> {
                       .headlineMedium
                       ?.copyWith(color: levitPink, fontWeight: FontWeight.w900),
                 ),
+                if (hasIncompleteScores) ...[
+                  const SizedBox(height: 6),
+                  Text('Asegúrate de llenar todos los campos',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.outline)),
+                ],
                 if (penaltyValue != 0)
                   Text(
-                      'Subtotal ${_scoreText(scoreSubtotal)} · Penalizacion ${_scoreText(penaltyValue)}'),
+                      'Subtotal ${_scoreText(scoreSubtotal)} · Penalización ${_scoreText(penaltyValue)}'),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 6),
                   Text(errorMessage!,
@@ -3075,28 +3364,10 @@ class _JudgingPageState extends State<JudgingPage> {
                           color: Theme.of(context).colorScheme.error)),
                 ],
                 const SizedBox(height: 14),
-                FilledButton.icon(
-                  onPressed: () {
-                    _save(routine, template, advance: false);
-                  },
-                  icon: const Icon(Icons.save),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Guardar'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: nextRoutine == null
-                      ? null
-                      : () {
-                          _save(routine, template, advance: true);
-                        },
-                  icon: const Icon(Icons.arrow_forward),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Guardar y siguiente'),
-                  ),
+                _buildSaveButton(
+                  routine: routine,
+                  template: template,
+                  hasNextRoutine: nextRoutine != null,
                 ),
               ],
             ),
@@ -3109,7 +3380,7 @@ class _JudgingPageState extends State<JudgingPage> {
   void _setScoreText(Criterion criterion, String value) {
     final controller = controllers[criterion.id];
     if (controller == null) return;
-    final normalized = _normalizedIntegerScoreText(value, criterion.maxScore);
+    final normalized = _normalizedScoreText(value, criterion.maxScore);
     if (controller.text != normalized) {
       controller.value = TextEditingValue(
         text: normalized,
@@ -3122,12 +3393,12 @@ class _JudgingPageState extends State<JudgingPage> {
   void _adjustScore(Criterion criterion, int delta) {
     final controller = controllers[criterion.id];
     if (controller == null) return;
-    final maxScore = _integerMaxScore(criterion.maxScore);
-    final current = int.tryParse(controller.text) ?? 0;
-    final next = (current + delta).clamp(0, maxScore).toInt();
+    final current = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
+    final next = (current + delta).clamp(0, criterion.maxScore).toDouble();
+    final nextText = _scoreText(next);
     controller.value = TextEditingValue(
-      text: '$next',
-      selection: TextSelection.collapsed(offset: '$next'.length),
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextText.length),
     );
     setState(() => errorMessage = null);
   }
@@ -3140,7 +3411,7 @@ class _JudgingPageState extends State<JudgingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Penalizacion', style: Theme.of(context).textTheme.labelLarge),
+            Text('Penalización', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -3200,8 +3471,7 @@ class _JudgingPageState extends State<JudgingPage> {
       final saved = store.scoreFor(routine, judge, criterion);
       controllers[criterion.id] = TextEditingController(
           text: saved > 0
-              ? _normalizedIntegerScoreText(
-                  _scoreText(saved), criterion.maxScore)
+              ? _normalizedScoreText(_scoreText(saved), criterion.maxScore)
               : '');
     }
     feedbackController.text =
@@ -3217,16 +3487,15 @@ class _JudgingPageState extends State<JudgingPage> {
     final values = <int, double>{};
     for (final criterion in template.criteria) {
       final text = controllers[criterion.id]?.text ?? '';
-      final value = int.tryParse(text);
-      final maxScore = _integerMaxScore(criterion.maxScore);
-      if (value == null || value < 0 || value > maxScore) {
+      final value = double.tryParse(text.replaceAll(',', '.'));
+      if (value == null || value < 0 || value > criterion.maxScore) {
         setState(() {
           errorMessage =
-              'Completa todas las notas con enteros entre 0 y $maxScore.';
+              'Completa todas las notas con números entre 0 y ${_scoreText(criterion.maxScore)}.';
         });
         return;
       }
-      values[criterion.id] = value.toDouble();
+      values[criterion.id] = value;
     }
     await widget.store.submitScores(
       routine,
@@ -3329,7 +3598,7 @@ class _PhoneScoresPageState extends State<PhoneScoresPage> {
           const PhoneEmptyCard(
               icon: Icons.bar_chart,
               title: 'Sin resultados',
-              message: 'Todavia no hay calificaciones para mostrar.')
+              message: 'Todavía no hay calificaciones para mostrar.')
         else if (filtered.isEmpty)
           const PhoneEmptyCard(
               icon: Icons.filter_alt_off,
@@ -3339,7 +3608,7 @@ class _PhoneScoresPageState extends State<PhoneScoresPage> {
           for (final indexed in filtered.indexed)
             PhoneResultCard(
               result: indexed.$2,
-              place: indexed.$2.total > 0 ? indexed.$1 + 1 : null,
+              place: indexed.$2.aggregateTotal > 0 ? indexed.$1 + 1 : null,
               judges: widget.store.judges,
             ),
       ],
@@ -3410,7 +3679,7 @@ class RankingFilterControls extends StatelessWidget {
             initialValue: genreValue,
             isExpanded: true,
             decoration: const InputDecoration(
-              labelText: 'Genero',
+              labelText: 'Género',
               prefixIcon: Icon(Icons.category),
             ),
             items: [
@@ -3454,7 +3723,7 @@ class _PhoneDictamenPageState extends State<PhoneDictamenPage> {
       return const EmptyState(
           icon: Icons.emoji_events_outlined,
           title: 'Sin dictamen',
-          message: 'Todavia no hay coreografias para mostrar.');
+          message: 'Todavía no hay coreografías para mostrar.');
     }
     selectedGroupKey = groups.containsKey(selectedGroupKey)
         ? selectedGroupKey
@@ -3486,7 +3755,7 @@ class _PhoneDictamenPageState extends State<PhoneDictamenPage> {
           key: ValueKey(selectedGroupKey),
           isExpanded: true,
           initialValue: selectedGroupKey,
-          decoration: const InputDecoration(labelText: 'Categoria'),
+          decoration: const InputDecoration(labelText: 'Categoría'),
           items: [
             for (final entry in groups.entries)
               DropdownMenuItem(
@@ -3504,14 +3773,14 @@ class _PhoneDictamenPageState extends State<PhoneDictamenPage> {
         const SizedBox(height: 18),
         SectionHeader(
           title: selectedGroupKey ?? '',
-          subtitle: '${selectedResults.length} coreografias',
+          subtitle: '${selectedResults.length} coreografías',
         ),
         const SizedBox(height: 10),
         if (selectedResults.isEmpty)
           const PhoneEmptyCard(
               icon: Icons.emoji_events_outlined,
               title: 'Sin resultados',
-              message: 'Este grupo todavia no tiene puntajes.')
+              message: 'Este grupo todavía no tiene puntajes.')
         else ...[
           for (final indexed in selectedResults.take(3).indexed)
             PhonePodiumCard(result: indexed.$2, place: indexed.$1 + 1),
@@ -3528,8 +3797,8 @@ class _PhoneDictamenPageState extends State<PhoneDictamenPage> {
                   overflow: TextOverflow.ellipsis),
               subtitle: Text(indexed.$2.routine.academy,
                   maxLines: 1, overflow: TextOverflow.ellipsis),
-              trailing: Text(indexed.$2.total > 0
-                  ? indexed.$2.total.toStringAsFixed(2)
+              trailing: Text(indexed.$2.aggregateTotal > 0
+                  ? indexed.$2.aggregateTotal.toStringAsFixed(2)
                   : '-'),
             ),
         ],
@@ -3604,9 +3873,9 @@ class _ScoresPageState extends State<ScoresPage> {
               columns: [
                 const DataColumn(label: Text('Pos')),
                 const DataColumn(label: Text('#')),
-                const DataColumn(label: Text('Coreografia')),
+                const DataColumn(label: Text('Coreografía')),
                 const DataColumn(label: Text('Academia')),
-                const DataColumn(label: Text('Genero')),
+                const DataColumn(label: Text('Género')),
                 for (final judge in widget.store.judges)
                   DataColumn(label: Text(judge)),
                 const DataColumn(label: Text('Penal.')),
@@ -3615,8 +3884,9 @@ class _ScoresPageState extends State<ScoresPage> {
               rows: [
                 for (final indexed in filtered.indexed)
                   DataRow(cells: [
-                    DataCell(
-                        Text(indexed.$2.total > 0 ? '${indexed.$1 + 1}' : '-')),
+                    DataCell(Text(indexed.$2.aggregateTotal > 0
+                        ? '${indexed.$1 + 1}'
+                        : '-')),
                     DataCell(Text(indexed.$2.routine.id)),
                     DataCell(SizedBox(
                         width: 220,
@@ -3633,8 +3903,8 @@ class _ScoresPageState extends State<ScoresPage> {
                     DataCell(Text(indexed.$2.penalty == 0
                         ? '-'
                         : indexed.$2.penalty.toStringAsFixed(1))),
-                    DataCell(Text(indexed.$2.total > 0
-                        ? indexed.$2.total.toStringAsFixed(2)
+                    DataCell(Text(indexed.$2.aggregateTotal > 0
+                        ? indexed.$2.aggregateTotal.toStringAsFixed(2)
                         : '-')),
                   ]),
               ],
@@ -3665,7 +3935,7 @@ class _DictamenPageState extends State<DictamenPage> {
       return const EmptyState(
           icon: Icons.emoji_events_outlined,
           title: 'Sin dictamen',
-          message: 'Todavia no hay coreografias para mostrar.');
+          message: 'Todavía no hay coreografías para mostrar.');
     }
     selectedGroupKey = groups.containsKey(selectedGroupKey)
         ? selectedGroupKey
@@ -3693,7 +3963,7 @@ class _DictamenPageState extends State<DictamenPage> {
                   child: ListTile(
                     title: Text(entry.key,
                         maxLines: 2, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${entry.value.length} coreografias'),
+                    subtitle: Text('${entry.value.length} coreografías'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => setState(() => selectedGroupKey = entry.key),
                   ),
@@ -3770,8 +4040,8 @@ class _DictamenPageState extends State<DictamenPage> {
                   title: Text(
                       '#${indexed.$2.routine.id} ${indexed.$2.routine.name}'),
                   subtitle: Text(indexed.$2.routine.academy),
-                  trailing: Text(indexed.$2.total > 0
-                      ? indexed.$2.total.toStringAsFixed(2)
+                  trailing: Text(indexed.$2.aggregateTotal > 0
+                      ? indexed.$2.aggregateTotal.toStringAsFixed(2)
                       : '-'),
                 ),
             ],
@@ -4099,7 +4369,7 @@ class PhoneRoutineCard extends StatelessWidget {
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w900)),
-                        Text(routine.academy,
+                        Text(routineDetailLine(routine),
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                       ],
                     ),
@@ -4168,7 +4438,7 @@ class PhoneFavoriteTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w900)),
-                      Text(favorite.routine.academy,
+                      Text(routineDetailLine(favorite.routine),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
@@ -4205,13 +4475,15 @@ class PhoneResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = result.total > 0 ? result.total.toStringAsFixed(2) : '-';
+    final total = result.aggregateTotal > 0
+        ? result.aggregateTotal.toStringAsFixed(2)
+        : '-';
     return Card(
       child: ExpansionTile(
         leading: CircleAvatar(child: Text(place == null ? '-' : '$place')),
         title: Text('#${result.routine.id} ${result.routine.name}',
             maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(result.routine.academy,
+        subtitle: Text(routineDetailLine(result.routine),
             maxLines: 1, overflow: TextOverflow.ellipsis),
         trailing:
             Text(total, style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -4230,7 +4502,7 @@ class PhoneResultCard extends StatelessWidget {
           if (result.penalty != 0) ...[
             Row(
               children: [
-                const Expanded(child: Text('Penalizacion total')),
+                const Expanded(child: Text('Penalización total')),
                 Text(result.penalty.toStringAsFixed(1),
                     style: const TextStyle(fontWeight: FontWeight.w800)),
               ],
@@ -4286,7 +4558,7 @@ class PhonePodiumCard extends StatelessWidget {
                       style: TextStyle(
                           color: featured ? Colors.white : null,
                           fontWeight: FontWeight.w900)),
-                  Text(result.routine.academy,
+                  Text(routineDetailLine(result.routine),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: featured ? Colors.white : null)),
@@ -4294,7 +4566,9 @@ class PhonePodiumCard extends StatelessWidget {
               ),
             ),
             Text(
-              result.total > 0 ? result.total.toStringAsFixed(1) : '-',
+              result.aggregateTotal > 0
+                  ? result.aggregateTotal.toStringAsFixed(1)
+                  : '-',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: featured ? Colors.white : null,
                   fontWeight: FontWeight.w900),
@@ -4414,10 +4688,10 @@ class DriveExportStatusCard extends StatelessWidget {
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader(
-      {super.key, required this.title, required this.subtitle, this.action});
+      {super.key, required this.title, this.subtitle, this.action});
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget? action;
 
   @override
@@ -4433,7 +4707,8 @@ class SectionHeader extends StatelessWidget {
                       .textTheme
                       .titleLarge
                       ?.copyWith(fontWeight: FontWeight.w900)),
-              Text(subtitle, style: Theme.of(context).textTheme.labelLarge),
+              if (subtitle != null && subtitle!.isNotEmpty)
+                Text(subtitle!, style: Theme.of(context).textTheme.labelLarge),
             ],
           ),
         ),
@@ -4495,7 +4770,7 @@ class RoutineListTile extends StatelessWidget {
                             .textTheme
                             .titleMedium
                             ?.copyWith(fontWeight: FontWeight.w900)),
-                    Text(routine.academy,
+                    Text(routineDetailLine(routine),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                     Wrap(
                       spacing: 6,
@@ -4565,7 +4840,8 @@ class SelectedRoutineSummary extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w900)),
-            Text(routine.academy, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(routineDetailLine(routine),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 10),
             Wrap(spacing: 6, children: [
               Tag(routine.division),
@@ -4617,7 +4893,7 @@ class PodiumTile extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              result?.routine.academy ?? '-',
+              result == null ? '-' : routineDetailLine(result!.routine),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -4627,9 +4903,9 @@ class PodiumTile extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              result == null || result!.total == 0
+              result == null || result!.aggregateTotal == 0
                   ? '-'
-                  : result!.total.toStringAsFixed(1),
+                  : result!.aggregateTotal.toStringAsFixed(1),
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w900,
                   color: featured ? Colors.white : null),
@@ -4678,6 +4954,13 @@ List<Routine> sortedRoutines(List<Routine> routines) {
     return leftNumber.compareTo(rightNumber);
   });
   return copy;
+}
+
+String routineDetailLine(Routine routine) {
+  final participant = routine.participant.trim();
+  if (participant.isEmpty) return routine.academy;
+  if (routine.academy.trim().isEmpty) return participant;
+  return '${routine.academy} · $participant';
 }
 
 const allRankingFilter = 'Todas';
@@ -4744,6 +5027,17 @@ IconData favoriteCategoryIcon(FavoriteCategory category) {
   };
 }
 
+int favoriteVoteCount(
+    List<FavoriteRankingBlock> blocks, FavoriteCategory category) {
+  var total = 0;
+  for (final block in blocks) {
+    for (final ranking in block.categories) {
+      if (ranking.category == category) total += ranking.totalVotes;
+    }
+  }
+  return total;
+}
+
 Map<String, List<RoutineResult>> dictamenGroups(List<RoutineResult> results) {
   final groups = <String, List<RoutineResult>>{};
   for (final result in results) {
@@ -4753,7 +5047,7 @@ Map<String, List<RoutineResult>> dictamenGroups(List<RoutineResult> results) {
   }
   for (final values in groups.values) {
     values.sort((left, right) {
-      final totalCompare = right.total.compareTo(left.total);
+      final totalCompare = right.aggregateTotal.compareTo(left.aggregateTotal);
       if (totalCompare != 0) return totalCompare;
       return (int.tryParse(left.routine.id) ?? 0)
           .compareTo(int.tryParse(right.routine.id) ?? 0);
@@ -4783,7 +5077,7 @@ Future<GoogleDriveExportSummary> exportSelectedBlockToDrive(
   }
   final routines = routinesForBlock(store, block);
   if (routines.isEmpty) {
-    throw StateError('No hay coreografias en ${block.name}.');
+    throw StateError('No hay coreografías en ${block.name}.');
   }
 
   final drive = GoogleDriveService(
@@ -4797,7 +5091,7 @@ Future<GoogleDriveExportSummary> exportSelectedBlockToDrive(
   for (final routine in routines) {
     final academyFolder = driveSafeName(routine.academy, fallback: 'Academia');
     final routineFolder = driveSafeName('#${routine.id} ${routine.name}',
-        fallback: 'Coreografia');
+        fallback: 'Coreografía');
     for (final judge in judges) {
       completed += 1;
       onProgress?.call(
@@ -4840,7 +5134,7 @@ String driveSafeName(String value, {String fallback = 'Archivo'}) {
 Future<void> exportResultsPdf(
   JudgingStore store, {
   List<RoutineResult>? results,
-  String title = 'Calificaciones y Dictamen Final',
+  String title = 'Calificaciones y dictamen final',
   String filename = 'calificaciones-dictamen-final.pdf',
 }) async {
   final bytes = await buildResultsPdfBytes(
@@ -4854,7 +5148,7 @@ Future<void> exportResultsPdf(
 Future<Uint8List> buildResultsPdfBytes(
   JudgingStore store, {
   List<RoutineResult>? results,
-  String title = 'Calificaciones y Dictamen Final',
+  String title = 'Calificaciones y dictamen final',
 }) async {
   final document = pw.Document();
   final exportResults = results ?? store.rankings;
@@ -4863,7 +5157,8 @@ Future<Uint8List> buildResultsPdfBytes(
   final logo = await _loadPdfLogo();
   final positionByRoutineId = {
     for (final indexed in exportResults.indexed)
-      indexed.$2.routine.id: indexed.$2.total > 0 ? indexed.$1 + 1 : null
+      indexed.$2.routine.id:
+          indexed.$2.aggregateTotal > 0 ? indexed.$1 + 1 : null
   };
   final groupedResults = <String, List<RoutineResult>>{};
   for (final result in exportResults) {
@@ -4879,7 +5174,7 @@ Future<Uint8List> buildResultsPdfBytes(
       footer: (context) => pw.Align(
         alignment: pw.Alignment.centerRight,
         child: pw.Text(
-          'Pagina ${context.pageNumber} / ${context.pagesCount}',
+          'Página ${context.pageNumber} / ${context.pagesCount}',
           style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
         ),
       ),
@@ -4888,7 +5183,7 @@ Future<Uint8List> buildResultsPdfBytes(
           logo: logo,
           title: title,
           subtitle:
-              '${store.selectedBlock?.name ?? store.appData?.sourceName ?? store.selectedEvent?.name ?? ''} · ${exportResults.length} coreografias',
+              '${store.selectedBlock?.name ?? store.appData?.sourceName ?? store.selectedEvent?.name ?? ''} · ${exportResults.length} coreografías',
         ),
         for (final entry in groupedResults.entries) ...[
           pw.SizedBox(height: 12),
@@ -4998,7 +5293,7 @@ Future<Uint8List> buildJudgingSheetPdfBytes(
             pw.SizedBox(width: 10),
             pw.Expanded(
               child: _pdfSummaryBox(
-                  label: 'Penalizacion', value: _scoreText(penalty)),
+                  label: 'Penalización', value: _scoreText(penalty)),
             ),
             pw.SizedBox(width: 10),
             pw.Expanded(
@@ -5072,13 +5367,13 @@ pw.Widget _pdfResultsGroup({
   final headers = [
     'Lugar',
     '#',
-    'Coreografia',
+    'Coreografía',
     'Academia',
     'Juez',
     for (final criterion in criteria) '${criterion.id}',
     'Penal.',
     'Total juez',
-    'Prom.',
+    'Total',
   ];
   final data = <List<String>>[];
   for (final result in results) {
@@ -5097,7 +5392,9 @@ pw.Widget _pdfResultsGroup({
           _scoreText(store.scoreFor(result.routine, judge, criterion)),
         penalty == 0 ? '-' : _scoreText(penalty),
         _scoreText(judgeTotal),
-        isFirstJudge && result.total > 0 ? result.total.toStringAsFixed(2) : '',
+        isFirstJudge && result.aggregateTotal > 0
+            ? result.aggregateTotal.toStringAsFixed(2)
+            : '',
       ]);
     }
   }
@@ -5168,17 +5465,34 @@ String _scoreText(double value) {
   return value.toStringAsFixed(1);
 }
 
-int _integerMaxScore(double value) {
-  final maxScore = value.floor();
-  return maxScore < 0 ? 0 : maxScore;
+int _scoreMaxLength(double maxScore) {
+  final integerDigits = maxScore.floor().toString().length;
+  return integerDigits + 2;
 }
 
-String _normalizedIntegerScoreText(String value, double maxScore) {
-  final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-  if (digits.isEmpty) return '';
-  final parsed = int.tryParse(digits);
+String _normalizedScoreText(String value, double maxScore) {
+  var normalized =
+      value.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
+  if (normalized.isEmpty) return '';
+
+  final firstDot = normalized.indexOf('.');
+  if (firstDot >= 0) {
+    final before = normalized.substring(0, firstDot);
+    final after = normalized.substring(firstDot + 1).replaceAll('.', '');
+    normalized = '$before.$after';
+  }
+  if (normalized == '.') return '';
+  if (normalized.startsWith('.')) normalized = '0$normalized';
+
+  final dotIndex = normalized.indexOf('.');
+  if (dotIndex >= 0 && normalized.length > dotIndex + 2) {
+    normalized = normalized.substring(0, dotIndex + 2);
+  }
+
+  final parsed = double.tryParse(normalized);
   if (parsed == null) return '';
-  return parsed.clamp(0, _integerMaxScore(maxScore)).toString();
+  if (parsed > maxScore) return _scoreText(maxScore);
+  return normalized;
 }
 
 List<MapEntry<String, List<Criterion>>> groupedCriteriaFor(

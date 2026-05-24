@@ -1,4 +1,4 @@
-# Jueceo Coreografias Android Tablet
+# Jueceo Coreografías Android Tablet
 
 Companion Flutter app for Android tablets. It uses the same Supabase schema as the iPad app and keeps the same core workflow: event, judge, routines, score sheet, feedback, scores, dictamen and PDF share.
 
@@ -27,9 +27,9 @@ flutter create . --platforms=android
 - Selects event and judge.
 - Lists blocks/routines with search.
 - Scores criteria and writes feedback.
-- Marks vestuario, coreografia and musica favorites per judge.
+- Marks vestuario, coreografía and música favorites per judge.
 - Stores local values with pending sync.
 - Upserts scores/feedback/favorites to Supabase.
-- Shows scores and dictamen by Genero-Edad-Cantidad with the same average/tie rules as iPad.
+- Shows scores and dictamen by Género-Edad-Cantidad with the same average/tie rules as iPad.
 - Exports ranking/dictamen PDF from the tablet.
 - Lets the admin upload an Excel into the `excel_imports` queue in Supabase.

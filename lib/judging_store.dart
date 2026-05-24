@@ -10,6 +10,8 @@ import 'supabase_api.dart';
 enum SyncState { localOnly, connecting, online, syncing, pending, offline }
 
 const bundledAppDataAsset = 'assets/data/app_data.json';
+const androidAdminUserEnabled = false;
+const androidAdminJudgeIds = {'admin', 'ati'};
 
 class ExcelImportSummary {
   ExcelImportSummary({
@@ -48,6 +50,8 @@ class JudgingStore extends ChangeNotifier {
   final Set<String> pendingFeedbackKeys = {};
   final Set<String> pendingPenaltyKeys = {};
   final Set<String> pendingFavoriteKeys = {};
+  bool _syncInProgress = false;
+  bool _syncRequested = false;
 
   int get pendingCount =>
       pendingScoreKeys.length +
@@ -56,10 +60,16 @@ class JudgingStore extends ChangeNotifier {
       pendingFavoriteKeys.length;
   List<Routine> get routines => appData?.routines ?? const [];
   List<DanceBlock> get blocks => appData?.blocks ?? const [];
-  List<String> get judges => appData?.judges ?? const [];
+  List<String> get judges {
+    final source = appData?.judges ?? const <String>[];
+    if (androidAdminUserEnabled) return source;
+    return source.where((judge) => !_isAdminJudge(judge)).toList();
+  }
+
   List<String> get editableJudges =>
       judges.where((judge) => roleFor(judge) == UserRole.judge).toList();
-  bool get isAdmin => roleFor(selectedJudge) == UserRole.admin;
+  bool get isAdmin =>
+      androidAdminUserEnabled && roleFor(selectedJudge) == UserRole.admin;
   bool get isAdminEditingAsJudge =>
       isAdmin &&
       adminScoringJudge != null &&
@@ -140,6 +150,73 @@ class JudgingStore extends ChangeNotifier {
           .compareTo(int.tryParse(right.routine.id) ?? 1 << 30);
     });
     return summaries;
+  }
+
+  List<FavoriteRankingBlock> get favoriteRankingBlocks {
+    final groupedByBlock = <String, List<FavoriteSelectionSummary>>{};
+    for (final favorite in favoriteSummaries) {
+      groupedByBlock.putIfAbsent(favorite.blockName, () => []).add(favorite);
+    }
+
+    final blocks = groupedByBlock.entries
+        .map((blockEntry) {
+          final categories = FavoriteCategory.values.map((category) {
+            final favoritesForCategory = blockEntry.value
+                .where((favorite) => favorite.category == category)
+                .toList();
+            final groupedByRoutine = <String, List<FavoriteSelectionSummary>>{};
+            for (final favorite in favoritesForCategory) {
+              groupedByRoutine
+                  .putIfAbsent(favorite.routine.id, () => [])
+                  .add(favorite);
+            }
+            final ranked = groupedByRoutine.entries.map((entry) {
+              final first = entry.value.first;
+              final judges = entry.value
+                  .map((favorite) => favorite.judge)
+                  .toSet()
+                  .toList()
+                ..sort((left, right) => left.compareTo(right));
+              return (
+                routine: first.routine,
+                votes: judges.length,
+                judges: judges,
+              );
+            }).toList()
+              ..sort((left, right) {
+                final voteCompare = right.votes.compareTo(left.votes);
+                if (voteCompare != 0) return voteCompare;
+                return _routineOrder(left.routine, right.routine);
+              });
+            final items = ranked.take(3).indexed.map((entry) {
+              final item = entry.$2;
+              return FavoriteRankingItem(
+                id: '${blockEntry.key}::${category.id}::${item.routine.id}',
+                rank: entry.$1 + 1,
+                category: category,
+                blockName: blockEntry.key,
+                routine: item.routine,
+                votes: item.votes,
+                judges: item.judges,
+              );
+            }).toList();
+            return FavoriteCategoryRanking(category: category, items: items);
+          }).toList();
+          return FavoriteRankingBlock(
+            blockName: blockEntry.key,
+            categories: categories,
+          );
+        })
+        .where((block) => block.totalVotes > 0)
+        .toList();
+
+    blocks.sort((left, right) {
+      final blockCompare = _blockSortOrder(left.blockName)
+          .compareTo(_blockSortOrder(right.blockName));
+      if (blockCompare != 0) return blockCompare;
+      return left.blockName.compareTo(right.blockName);
+    });
+    return blocks;
   }
 
   Future<void> initialize() async {
@@ -368,15 +445,18 @@ class JudgingStore extends ChangeNotifier {
     appData!.judgeProfiles.add(JudgeProfile(
       judgeId: stableRemoteId(cleanName),
       name: cleanName,
-      role:
-          stableRemoteId(cleanName) == 'ati' ? UserRole.admin : UserRole.judge,
+      role: androidAdminUserEnabled &&
+              androidAdminJudgeIds.contains(stableRemoteId(cleanName))
+          ? UserRole.admin
+          : UserRole.judge,
     ));
     selectJudge(cleanName);
   }
 
   UserRole roleFor(String judge) {
+    if (!androidAdminUserEnabled) return UserRole.judge;
     final judgeId = stableRemoteId(judge);
-    if (judgeId == 'ati') return UserRole.admin;
+    if (androidAdminJudgeIds.contains(judgeId)) return UserRole.admin;
     final profiles = appData?.judgeProfiles ?? const <JudgeProfile>[];
     for (final profile in profiles) {
       if (profile.judgeId == judgeId ||
@@ -411,6 +491,7 @@ class JudgingStore extends ChangeNotifier {
                     level: '',
                     category: '',
                     choreographer: '',
+                    participant: '',
                     state: '',
                     time: '',
                     duration: '',
@@ -499,14 +580,14 @@ class JudgingStore extends ChangeNotifier {
     required String eventSlug,
   }) async {
     if (!api.isConfigured) {
-      throw StateError('Supabase no esta configurado.');
+      throw StateError('Supabase no está configurado.');
     }
     if (bytes.isEmpty) {
       throw StateError('No se pudo leer el Excel seleccionado.');
     }
     const maxBytes = 20 * 1024 * 1024;
     if (bytes.length > maxBytes) {
-      throw StateError('El archivo supera el maximo de 20 MB.');
+      throw StateError('El archivo supera el máximo de 20 MB.');
     }
     final cleanEventName = eventName.trim();
     final cleanSlug = stableRemoteId(eventSlug);
@@ -534,6 +615,22 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Future<void> syncPending() async {
+    if (_syncInProgress) {
+      _syncRequested = true;
+      return;
+    }
+    _syncInProgress = true;
+    try {
+      do {
+        _syncRequested = false;
+        await _syncPendingOnce();
+      } while (_syncRequested);
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  Future<void> _syncPendingOnce() async {
     if (!api.isConfigured || selectedEvent == null) {
       syncState = api.isConfigured ? SyncState.pending : SyncState.localOnly;
       notifyListeners();
@@ -549,61 +646,108 @@ class JudgingStore extends ChangeNotifier {
     notifyListeners();
     try {
       final eventID = selectedEvent!.id;
+      final scoreKeys = Set<String>.from(pendingScoreKeys);
+      final sentScoreValues = <String, double>{};
       final scoreRows = <Map<String, dynamic>>[];
-      for (final key in pendingScoreKeys) {
+      for (final key in scoreKeys) {
         final parts = key.split('::');
-        if (parts.length != 3) continue;
+        if (parts.length != 3) {
+          pendingScoreKeys.remove(key);
+          continue;
+        }
+        final routineId = parts[0];
+        final value = scores[key] ?? 0;
+        sentScoreValues[key] = value;
         scoreRows.add({
           'event_id': eventID,
-          'routine_id': parts[0],
+          'block_id': _blockIdForRoutine(routineId),
+          'routine_id': routineId,
           'judge_id': stableRemoteId(parts[1]),
           'criterion_id': int.tryParse(parts[2]) ?? 0,
-          'value': scores[key] ?? 0,
+          'value': value,
           'device_id': 'android-tablet',
         });
       }
       await api.upsertScores(eventID, scoreRows);
-      pendingScoreKeys.clear();
+      for (final key in scoreKeys) {
+        if ((scores[key] ?? 0) == sentScoreValues[key]) {
+          pendingScoreKeys.remove(key);
+        }
+      }
 
+      final feedbackKeys = Set<String>.from(pendingFeedbackKeys);
+      final sentFeedbackValues = <String, String>{};
       final feedbackRows = <Map<String, dynamic>>[];
-      for (final key in pendingFeedbackKeys) {
+      for (final key in feedbackKeys) {
         final parts = key.split('::');
-        if (parts.length != 2) continue;
+        if (parts.length != 2) {
+          pendingFeedbackKeys.remove(key);
+          continue;
+        }
+        final routineId = parts[0];
+        final body = feedback[key] ?? '';
+        sentFeedbackValues[key] = body;
         feedbackRows.add({
           'event_id': eventID,
-          'routine_id': parts[0],
+          'block_id': _blockIdForRoutine(routineId),
+          'routine_id': routineId,
           'judge_id': stableRemoteId(parts[1]),
-          'body': feedback[key] ?? '',
+          'body': body,
           'device_id': 'android-tablet',
         });
       }
       await api.upsertFeedback(eventID, feedbackRows);
-      pendingFeedbackKeys.clear();
+      for (final key in feedbackKeys) {
+        if ((feedback[key] ?? '') == sentFeedbackValues[key]) {
+          pendingFeedbackKeys.remove(key);
+        }
+      }
 
+      final penaltyKeys = Set<String>.from(pendingPenaltyKeys);
+      final sentPenaltyValues = <String, double>{};
       final penaltyRows = <Map<String, dynamic>>[];
-      for (final key in pendingPenaltyKeys) {
+      for (final key in penaltyKeys) {
         final parts = key.split('::');
-        if (parts.length != 2) continue;
+        if (parts.length != 2) {
+          pendingPenaltyKeys.remove(key);
+          continue;
+        }
+        final routineId = parts[0];
+        final value = penalties[key] ?? 0;
+        sentPenaltyValues[key] = value;
         penaltyRows.add({
           'event_id': eventID,
-          'routine_id': parts[0],
+          'block_id': _blockIdForRoutine(routineId),
+          'routine_id': routineId,
           'judge_id': stableRemoteId(parts[1]),
-          'value': penalties[key] ?? 0,
+          'value': value,
           'device_id': 'android-tablet',
         });
       }
       await api.upsertPenalties(eventID, penaltyRows);
-      pendingPenaltyKeys.clear();
+      for (final key in penaltyKeys) {
+        if ((penalties[key] ?? 0) == sentPenaltyValues[key]) {
+          pendingPenaltyKeys.remove(key);
+        }
+      }
 
       final favoriteKeys = Set<String>.from(pendingFavoriteKeys);
+      final sentFavoriteValues = <String, String?>{};
       final favoriteUpsertRows = <Map<String, dynamic>>[];
       final favoriteDeleteRows = <Map<String, dynamic>>[];
       for (final key in favoriteKeys) {
         final parsed = _parseFavoriteKey(key);
-        if (parsed == null) continue;
+        if (parsed == null) {
+          pendingFavoriteKeys.remove(key);
+          continue;
+        }
         final judgeName = _judgeNameForKey(parsed.judgeKey);
-        if (judgeName == null) continue;
+        if (judgeName == null) {
+          pendingFavoriteKeys.remove(key);
+          continue;
+        }
         final selectedRoutine = favoriteSelections[key];
+        sentFavoriteValues[key] = selectedRoutine;
         if (selectedRoutine == null) {
           favoriteDeleteRows.add({
             'event_id': parsed.eventId,
@@ -624,7 +768,11 @@ class JudgingStore extends ChangeNotifier {
       }
       await api.upsertFavorites(favoriteUpsertRows);
       await api.deleteFavorites(favoriteDeleteRows);
-      pendingFavoriteKeys.removeAll(favoriteKeys);
+      for (final key in favoriteKeys) {
+        if (favoriteSelections[key] == sentFavoriteValues[key]) {
+          pendingFavoriteKeys.remove(key);
+        }
+      }
       await _persistAll();
       syncState = SyncState.online;
       syncMessage = 'Datos sincronizados.';
@@ -638,10 +786,9 @@ class JudgingStore extends ChangeNotifier {
   List<RoutineResult> get rankings {
     final results = visibleRoutines.map(resultFor).toList();
     results.sort((left, right) {
-      final totalCompare = right.total.compareTo(left.total);
+      final totalCompare = right.aggregateTotal.compareTo(left.aggregateTotal);
       if (totalCompare != 0) return totalCompare;
-      return (int.tryParse(left.routine.id) ?? 0)
-          .compareTo(int.tryParse(right.routine.id) ?? 0);
+      return _routineOrder(left.routine, right.routine);
     });
     return results;
   }
@@ -752,7 +899,8 @@ class JudgingStore extends ChangeNotifier {
       _prefs?.setString('selectedRoutineId', selectedRoutineId);
     }
     if (adminScoringJudge != null &&
-        (!judges.contains(adminScoringJudge) ||
+        (!isAdmin ||
+            !judges.contains(adminScoringJudge) ||
             roleFor(adminScoringJudge!) != UserRole.judge)) {
       adminScoringJudge = null;
     }
@@ -814,6 +962,37 @@ class JudgingStore extends ChangeNotifier {
       }
     }
     return 1 << 30;
+  }
+
+  int _routineOrder(Routine left, Routine right) {
+    final leftNumber = int.tryParse(left.id) ?? 1 << 30;
+    final rightNumber = int.tryParse(right.id) ?? 1 << 30;
+    if (leftNumber == rightNumber) return left.id.compareTo(right.id);
+    return leftNumber.compareTo(rightNumber);
+  }
+
+  bool _isAdminJudge(String judge) {
+    final judgeId = stableRemoteId(judge);
+    if (androidAdminJudgeIds.contains(judgeId)) return true;
+    final profiles = appData?.judgeProfiles ?? const <JudgeProfile>[];
+    for (final profile in profiles) {
+      if ((profile.judgeId == judgeId ||
+              normalizedKey(profile.name) == normalizedKey(judge)) &&
+          profile.role == UserRole.admin) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _blockIdForRoutine(String routineId) {
+    for (final routine in routines) {
+      if (routine.id == routineId) {
+        if (routine.blockId.isNotEmpty) return routine.blockId;
+        return stableRemoteId(routine.block);
+      }
+    }
+    return selectedBlock?.blockId ?? '';
   }
 
   Map<String, double> _decodeDoubleMap(String raw) {

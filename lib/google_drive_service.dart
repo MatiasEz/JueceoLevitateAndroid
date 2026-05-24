@@ -72,7 +72,7 @@ class GoogleDriveService {
       promptIfNecessary: true,
     );
     if (headers == null) {
-      throw StateError('No se autorizo el acceso a Google Drive.');
+      throw StateError('No se autorizó el acceso a Google Drive.');
     }
     return headers;
   }
