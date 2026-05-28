@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'app_update_service.dart';
 import 'google_drive_service.dart';
 import 'judging_store.dart';
 import 'models.dart';
@@ -21,6 +25,7 @@ const googleDriveRootFolder = String.fromEnvironment(
   defaultValue: 'Levitate CDMX 2026',
 );
 const addJudgeMenuValue = '__add_judge__';
+const feedbackMaxLength = 300;
 
 const levitPink = Color(0xffed2a72);
 const levitateLogoAsset = 'assets/images/levitate_logo.png';
@@ -35,7 +40,10 @@ const judgeHeroAssets = {
 const levitPaperLight = Color(0xfffbfbfd);
 const levitPaperDark = Color(0xff0b0e13);
 
-String judgeHeroAssetFor(String judge) {
+String judgeHeroAssetFor(String judge, {String? configuredHeroImageName}) {
+  final configuredAsset = judgeHeroAssetFromName(configuredHeroImageName);
+  if (configuredAsset != null) return configuredAsset;
+
   final judgeId = stableRemoteId(judge);
   final exact = judgeHeroAssets[judgeId];
   if (exact != null) return exact;
@@ -44,6 +52,31 @@ String judgeHeroAssetFor(String judge) {
     if (tokens.contains(entry.key)) return entry.value;
   }
   return levitateDancerHeroAsset;
+}
+
+String? judgeHeroAssetFromName(String? heroImageName) {
+  final cleanName = heroImageName?.trim();
+  if (cleanName == null || cleanName.isEmpty) return null;
+  if (judgeHeroAssets.containsValue(cleanName) ||
+      cleanName == levitateDancerHeroAsset) {
+    return cleanName;
+  }
+
+  final key = stableRemoteId(cleanName);
+  final alias = key
+      .replaceFirst(RegExp(r'^judge-hero-'), '')
+      .replaceFirst(RegExp(r'^judgehero'), '');
+  final exact = judgeHeroAssets[key] ?? judgeHeroAssets[alias];
+  if (exact != null) return exact;
+
+  final tokens = key.split('-').toSet();
+  for (final entry in judgeHeroAssets.entries) {
+    if (tokens.contains(entry.key) || key.endsWith(entry.key)) {
+      return entry.value;
+    }
+  }
+
+  return null;
 }
 
 ThemeData levitateTheme(Brightness brightness) {
@@ -222,12 +255,215 @@ class JueceoTabletApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Jueceo Coreografías',
+      title: 'Levitate',
       theme: levitateTheme(Brightness.light),
       darkTheme: levitateTheme(Brightness.dark),
-      home: AnimatedBuilder(
-        animation: store,
-        builder: (context, _) => AdaptiveShell(store: store),
+      home: AppUpdateGate(
+        child: AnimatedBuilder(
+          animation: store,
+          builder: (context, _) => AdaptiveShell(store: store),
+        ),
+      ),
+    );
+  }
+}
+
+class AppUpdateGate extends StatefulWidget {
+  const AppUpdateGate({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<AppUpdateGate> createState() => _AppUpdateGateState();
+}
+
+class _AppUpdateGateState extends State<AppUpdateGate>
+    with WidgetsBindingObserver {
+  final AppUpdateService _updateService = AppUpdateService();
+
+  AppUpdateInfo? _pendingUpdate;
+  bool _dialogShowing = false;
+  bool _progressDialogShowing = false;
+  bool _waitingForInstallPermission = false;
+  bool _updating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForUpdates());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _updateService.close();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_waitingForInstallPermission) {
+      return;
+    }
+    _waitingForInstallPermission = false;
+    final update = _pendingUpdate;
+    if (update != null) {
+      unawaited(_startUpdate(update, openSettingsIfNeeded: false));
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      final update = await _updateService.fetchAvailableUpdate();
+      if (!mounted || update == null) return;
+      await _showUpdateDialog(update);
+    } catch (error) {
+      debugPrint('No se pudo consultar actualizaciones: $error');
+    }
+  }
+
+  Future<void> _showUpdateDialog(AppUpdateInfo update) async {
+    if (_dialogShowing || _updating || !mounted) return;
+    _dialogShowing = true;
+    final shouldUpdate = await showDialog<bool>(
+          context: context,
+          barrierDismissible: !update.required,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Actualización disponible'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Versión ${update.versionName}'),
+                  if (update.notes.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(update.notes),
+                  ],
+                ],
+              ),
+              actions: [
+                if (!update.required)
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Más tarde'),
+                  ),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  icon: const Icon(Icons.download),
+                  label: const Text('Actualizar'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+    _dialogShowing = false;
+
+    if (shouldUpdate && mounted) {
+      await _startUpdate(update);
+    }
+  }
+
+  Future<void> _startUpdate(
+    AppUpdateInfo update, {
+    bool openSettingsIfNeeded = true,
+  }) async {
+    if (_updating) return;
+    _pendingUpdate = update;
+
+    final canInstallPackages = await _updateService.canInstallPackages();
+    if (!canInstallPackages) {
+      if (openSettingsIfNeeded) {
+        _waitingForInstallPermission = true;
+        _showSnackBar(
+          'Habilitá "Instalar apps desconocidas" para Levitate y volvé.',
+        );
+        await _updateService.openInstallSettings();
+      } else {
+        _showSnackBar('No se habilitó el permiso para instalar el APK.');
+        unawaited(_showUpdateDialog(update));
+      }
+      return;
+    }
+
+    _updating = true;
+    final progress = ValueNotifier<double>(0);
+    _showProgressDialog(progress);
+
+    try {
+      final apk = await _updateService.downloadApk(
+        update,
+        onProgress: (value) =>
+            progress.value = value.clamp(0.0, 1.0).toDouble(),
+      );
+      await _dismissProgressDialog();
+      await _updateService.installApk(apk);
+    } catch (error) {
+      await _dismissProgressDialog();
+      if (mounted) {
+        _showSnackBar('No se pudo instalar la actualización: $error');
+      }
+    } finally {
+      progress.dispose();
+      _updating = false;
+    }
+  }
+
+  void _showProgressDialog(ValueNotifier<double> progress) {
+    if (!mounted) return;
+    _progressDialogShowing = true;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => UpdateDownloadDialog(progress: progress),
+      ).whenComplete(() => _progressDialogShowing = false),
+    );
+  }
+
+  Future<void> _dismissProgressDialog() async {
+    if (!_progressDialogShowing || !mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+class UpdateDownloadDialog extends StatelessWidget {
+  const UpdateDownloadDialog({super.key, required this.progress});
+
+  final ValueListenable<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Descargando actualización'),
+      content: ValueListenableBuilder<double>(
+        valueListenable: progress,
+        builder: (context, value, _) {
+          final percent = (value * 100).round().clamp(0, 100);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinearProgressIndicator(value: value <= 0 ? null : value),
+              const SizedBox(height: 12),
+              Text('$percent%'),
+            ],
+          );
+        },
       ),
     );
   }
@@ -876,148 +1112,253 @@ class HomePage extends StatelessWidget {
         : '${store.pendingCount} pendiente${store.pendingCount == 1 ? '' : 's'}';
 
     return ListView(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.zero,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final showHeroImage = constraints.maxWidth >= 620;
-            final heroWidth =
-                (constraints.maxWidth * 0.38).clamp(220.0, 330.0).toDouble();
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
+        DashboardHeroHeader(
+          judge: store.scoringJudge,
+          heroImageName: store.heroImageNameFor(store.scoringJudge),
+          height: 270,
+          horizontalPadding: 28,
+          compact: false,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+          child: Column(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  Widget metricsGrid() => GridView.count(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 1.18,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          MetricTile(
+                              icon: Icons.calendar_month,
+                              value: '$completed',
+                              label: 'Calificadas',
+                              detail:
+                                  '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
+                          MetricTile(
+                              icon: Icons.cloud_done,
+                              value: '$syncPercent%',
+                              label: 'Sincronización',
+                              detail: syncDetail),
+                        ],
+                      );
+
+                  Widget upcoming() => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SectionHeader(title: 'Próximas coreografías'),
+                          const SizedBox(height: 10),
+                          for (final routine in preview)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: RoutineListTile(
+                                routine: routine,
+                                selected: routine.id == nextRoutine?.id,
+                                onTap: () => store.selectRoutine(routine.id),
+                              ),
+                            ),
+                        ],
+                      );
+
+                  if (constraints.maxWidth >= 760) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 2, child: metricsGrid()),
+                        const SizedBox(width: 18),
+                        Expanded(flex: 3, child: upcoming()),
+                      ],
+                    );
+                  }
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Buenos días,',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                  color:
-                                      Theme.of(context).colorScheme.outline)),
-                      Text(
-                        store.selectedJudge.isEmpty
-                            ? 'JUEZ'
-                            : store.selectedJudge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .displayMedium
-                            ?.copyWith(
-                                fontWeight: FontWeight.w900, color: levitPink),
-                      ),
-                      Text('Estás lista para calificar.\nQue comience el flow!',
-                          style: Theme.of(context).textTheme.titleMedium),
+                      metricsGrid(),
+                      const SizedBox(height: 18),
+                      upcoming(),
                     ],
-                  ),
-                ),
-                if (showHeroImage) ...[
-                  const SizedBox(width: 28),
-                  DashboardJudgeImage(
-                    judge: store.scoringJudge,
-                    width: heroWidth,
-                    height: heroWidth * 0.527,
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 28),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            Widget metricsGrid() => GridView.count(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 1.18,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    MetricTile(
-                        icon: Icons.calendar_month,
-                        value: '$completed',
-                        label: 'Calificadas',
-                        detail:
-                            '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
-                    MetricTile(
-                        icon: Icons.cloud_done,
-                        value: '$syncPercent%',
-                        label: 'Sincronización',
-                        detail: syncDetail),
-                  ],
-                );
-
-            Widget upcoming() => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionHeader(title: 'Próximas coreografías'),
-                    const SizedBox(height: 10),
-                    for (final routine in preview)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: RoutineListTile(
-                          routine: routine,
-                          selected: routine.id == nextRoutine?.id,
-                          onTap: () => store.selectRoutine(routine.id),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  if (!store.isAdmin)
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: nextRoutine == null
+                            ? null
+                            : () => onNavigate(AppSection.judging),
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text('Entrar al jueceo'),
                         ),
                       ),
-                  ],
-                );
-
-            if (constraints.maxWidth >= 760) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 2, child: metricsGrid()),
-                  const SizedBox(width: 18),
-                  Expanded(flex: 3, child: upcoming()),
+                    ),
+                  if (store.isAdmin)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => onNavigate(AppSection.admin),
+                        icon: const Icon(Icons.admin_panel_settings),
+                        label: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text('Panel admin'),
+                        ),
+                      ),
+                    ),
                 ],
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                metricsGrid(),
-                const SizedBox(height: 18),
-                upcoming(),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 18),
-        Row(
-          children: [
-            if (!store.isAdmin)
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: nextRoutine == null
-                      ? null
-                      : () => onNavigate(AppSection.judging),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('Entrar al jueceo'),
-                  ),
-                ),
               ),
-            if (store.isAdmin)
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => onNavigate(AppSection.admin),
-                  icon: const Icon(Icons.admin_panel_settings),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('Panel admin'),
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+class DashboardHeroHeader extends StatelessWidget {
+  const DashboardHeroHeader({
+    super.key,
+    required this.judge,
+    this.heroImageName,
+    required this.height,
+    required this.horizontalPadding,
+    required this.compact,
+  });
+
+  final String judge;
+  final String? heroImageName;
+  final double height;
+  final double horizontalPadding;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = colorScheme.surface;
+    final asset = judgeHeroAssetFor(
+      judge,
+      configuredHeroImageName: heroImageName,
+    );
+    final displayJudge = judge.isEmpty ? 'JUEZ' : judge;
+
+    return Semantics(
+      label: 'Imagen de Levitate para $displayJudge',
+      image: true,
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: FractionallySizedBox(
+                widthFactor: compact ? 1 : 0.72,
+                heightFactor: 1,
+                alignment: Alignment.centerRight,
+                child: Image.asset(
+                  asset,
+                  key: ValueKey('hero-$asset'),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    surface.withValues(alpha: isDark ? 0.99 : 0.94),
+                    surface.withValues(alpha: isDark ? 0.84 : 0.66),
+                    surface.withValues(alpha: isDark ? 0.22 : 0.12),
+                    Colors.transparent,
+                  ],
+                  stops: compact
+                      ? const [0, 0.42, 0.76, 1]
+                      : const [0, 0.46, 0.74, 1],
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    surface.withValues(alpha: isDark ? 0.20 : 0.06),
+                    Colors.transparent,
+                    surface.withValues(alpha: isDark ? 0.96 : 0.84),
+                  ],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: compact ? 320 : 470),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Buenos días,',
+                          style: (compact
+                                  ? Theme.of(context).textTheme.titleMedium
+                                  : Theme.of(context).textTheme.headlineSmall)
+                              ?.copyWith(
+                            color: colorScheme.outline,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          displayJudge,
+                          maxLines: compact ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: (compact
+                                  ? Theme.of(context).textTheme.headlineMedium
+                                  : Theme.of(context).textTheme.displayMedium)
+                              ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: levitPink,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          compact
+                              ? 'Que comience el flow!'
+                              : 'Estás lista para calificar.\nQue comience el flow!',
+                          style: (compact
+                                  ? Theme.of(context).textTheme.bodyLarge
+                                  : Theme.of(context).textTheme.titleMedium)
+                              ?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1026,11 +1367,13 @@ class DashboardJudgeImage extends StatelessWidget {
   const DashboardJudgeImage({
     super.key,
     required this.judge,
+    this.heroImageName,
     this.width = 330,
     this.height = 174,
   });
 
   final String judge;
+  final String? heroImageName;
   final double width;
   final double height;
 
@@ -1039,7 +1382,10 @@ class DashboardJudgeImage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = colorScheme.surface;
-    final asset = judgeHeroAssetFor(judge);
+    final asset = judgeHeroAssetFor(
+      judge,
+      configuredHeroImageName: heroImageName,
+    );
 
     return Semantics(
       label: 'Imagen de Levitate para $judge',
@@ -1543,163 +1889,153 @@ class PhoneHomePage extends StatelessWidget {
         : '${store.pendingCount} pendiente${store.pendingCount == 1 ? '' : 's'}';
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: EdgeInsets.zero,
       children: [
-        PhonePageTitle(
-          title: 'Levitate',
-          titleWidget: const LevitateBrand(isCompact: true),
-          subtitle: store.selectedEvent?.name ??
-              store.appData?.sourceName ??
-              'Jueceo coreografías',
-          trailing: IconButton.filledTonal(
-            tooltip: 'Actualizar',
-            onPressed: store.refreshEvents,
-            icon: const Icon(Icons.refresh),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (store.isAdmin) ...[
-              EventSelectorButton(store: store),
-              BlockSelectorButton(store: store),
-            ],
-            JudgeSelectorButton(store: store),
-            SyncChip(store: store),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DashboardJudgeImage(
-                  judge: store.scoringJudge,
-                  width: double.infinity,
-                  height: 128,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            children: [
+              PhonePageTitle(
+                title: 'Levitate',
+                titleWidget: const LevitateBrand(isCompact: true),
+                subtitle: store.selectedEvent?.name ??
+                    store.appData?.sourceName ??
+                    'Jueceo coreografías',
+                trailing: IconButton.filledTonal(
+                  tooltip: 'Actualizar',
+                  onPressed: store.refreshEvents,
+                  icon: const Icon(Icons.refresh),
                 ),
-                const SizedBox(height: 16),
-                Text('Buenos días,',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.outline)),
-                Text(
-                  store.selectedJudge.isEmpty ? 'JUEZ' : store.selectedJudge,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w900, color: levitPink),
-                ),
-                const SizedBox(height: 4),
-                const Text('Estás lista para calificar. Que comience el flow!'),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            Widget metricsGrid() => PhoneMetricGrid(
-                  children: [
-                    MetricTile(
-                        icon: Icons.calendar_month,
-                        value: '$completed',
-                        label: 'Calificadas',
-                        detail:
-                            '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
-                    MetricTile(
-                        icon: Icons.cloud_done,
-                        value: '$syncPercent%',
-                        label: 'Sincronización',
-                        detail: syncDetail),
-                  ],
-                );
-
-            Widget upcoming() => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionHeader(title: 'Próximas coreografías'),
-                    const SizedBox(height: 10),
-                    if (preview.isEmpty)
-                      const PhoneEmptyCard(
-                          icon: Icons.inbox,
-                          title: 'Sin coreografías',
-                          message: 'Carga un evento para empezar.')
-                    else
-                      for (final routine in preview)
-                        PhoneRoutineCard(
-                          routine: routine,
-                          selected: routine.id == nextRoutine?.id,
-                          favorite: store.hasFavorite(routine),
-                          footer: store.isAdmin
-                              ? null
-                              : Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton.icon(
-                                    onPressed: () {
-                                      store.selectRoutine(routine.id);
-                                      onNavigate(AppSection.judging);
-                                    },
-                                    icon: const Icon(Icons.fact_check),
-                                    label: const Text('Juecear'),
-                                  ),
-                                ),
-                          onTap: () => store.selectRoutine(routine.id),
-                        ),
-                  ],
-                );
-
-            if (constraints.maxWidth >= 560) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(child: metricsGrid()),
-                  const SizedBox(width: 12),
-                  Expanded(child: upcoming()),
+                  if (store.isAdmin) ...[
+                    EventSelectorButton(store: store),
+                    BlockSelectorButton(store: store),
+                  ],
+                  JudgeSelectorButton(store: store),
+                  SyncChip(store: store),
                 ],
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                metricsGrid(),
-                const SizedBox(height: 16),
-                upcoming(),
-              ],
-            );
-          },
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
-        if (!store.isAdmin)
-          FilledButton.icon(
-            onPressed: nextRoutine == null
-                ? null
-                : () {
-                    store.selectRoutine(nextRoutine.id);
-                    onNavigate(AppSection.judging);
-                  },
-            icon: const Icon(Icons.play_arrow),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('Entrar al jueceo'),
-            ),
+        DashboardHeroHeader(
+          judge: store.scoringJudge,
+          heroImageName: store.heroImageNameFor(store.scoringJudge),
+          height: 210,
+          horizontalPadding: 16,
+          compact: true,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  Widget metricsGrid() => PhoneMetricGrid(
+                        children: [
+                          MetricTile(
+                              icon: Icons.calendar_month,
+                              value: '$completed',
+                              label: 'Calificadas',
+                              detail:
+                                  '${percentage(completed, store.visibleRoutines.length)}% del bloque'),
+                          MetricTile(
+                              icon: Icons.cloud_done,
+                              value: '$syncPercent%',
+                              label: 'Sincronización',
+                              detail: syncDetail),
+                        ],
+                      );
+
+                  Widget upcoming() => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SectionHeader(title: 'Próximas coreografías'),
+                          const SizedBox(height: 10),
+                          if (preview.isEmpty)
+                            const PhoneEmptyCard(
+                                icon: Icons.inbox,
+                                title: 'Sin coreografías',
+                                message: 'Carga un evento para empezar.')
+                          else
+                            for (final routine in preview)
+                              PhoneRoutineCard(
+                                routine: routine,
+                                selected: routine.id == nextRoutine?.id,
+                                favorite: store.hasFavorite(routine),
+                                footer: store.isAdmin
+                                    ? null
+                                    : Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton.icon(
+                                          onPressed: () {
+                                            store.selectRoutine(routine.id);
+                                            onNavigate(AppSection.judging);
+                                          },
+                                          icon: const Icon(Icons.fact_check),
+                                          label: const Text('Juecear'),
+                                        ),
+                                      ),
+                                onTap: () => store.selectRoutine(routine.id),
+                              ),
+                        ],
+                      );
+
+                  if (constraints.maxWidth >= 560) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: metricsGrid()),
+                        const SizedBox(width: 12),
+                        Expanded(child: upcoming()),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      metricsGrid(),
+                      const SizedBox(height: 16),
+                      upcoming(),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              if (!store.isAdmin)
+                FilledButton.icon(
+                  onPressed: nextRoutine == null
+                      ? null
+                      : () {
+                          store.selectRoutine(nextRoutine.id);
+                          onNavigate(AppSection.judging);
+                        },
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Text('Entrar al jueceo'),
+                  ),
+                ),
+              if (store.isAdmin) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => onNavigate(AppSection.admin),
+                  icon: const Icon(Icons.admin_panel_settings),
+                  label: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Text('Panel admin'),
+                  ),
+                ),
+              ],
+            ],
           ),
-        if (store.isAdmin) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () => onNavigate(AppSection.admin),
-            icon: const Icon(Icons.admin_panel_settings),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('Panel admin'),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }
@@ -2985,6 +3321,13 @@ class _JudgingPageState extends State<JudgingPage> {
                     routine: routine,
                     judge: scoringJudge,
                   ),
+                  const SizedBox(height: 12),
+                  _buildPenaltyControl(context),
+                  const SizedBox(height: 12),
+                  _buildFeedbackControl(
+                    routine: routine,
+                    scoringJudge: scoringJudge,
+                  ),
                 ],
               ),
             ),
@@ -2993,22 +3336,6 @@ class _JudgingPageState extends State<JudgingPage> {
               child: Column(
                 children: [
                   ..._buildCriteriaSections(template, compact: false),
-                  const SizedBox(height: 12),
-                  _buildPenaltyControl(context),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: feedbackController,
-                    minLines: 4,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                        labelText: 'Feedback',
-                        alignLabelWithHint: true,
-                        counterText: ''),
-                    maxLength: 300,
-                    onChanged: (value) {
-                      store.setFeedback(routine, value, judge: scoringJudge);
-                    },
-                  ),
                 ],
               ),
             ),
@@ -3312,26 +3639,19 @@ class _JudgingPageState extends State<JudgingPage> {
           judge: scoringJudge,
         ),
         const SizedBox(height: 12),
+        _buildPenaltyControl(context),
+        const SizedBox(height: 10),
+        _buildFeedbackControl(
+          routine: routine,
+          scoringJudge: scoringJudge,
+        ),
+        const SizedBox(height: 12),
         const SectionHeader(
           title: 'Puntajes',
           subtitle: 'Completa cada criterio',
         ),
         const SizedBox(height: 10),
         ..._buildCriteriaSections(template, compact: true),
-        const SizedBox(height: 10),
-        _buildPenaltyControl(context),
-        const SizedBox(height: 10),
-        TextField(
-          controller: feedbackController,
-          minLines: 4,
-          maxLines: 6,
-          decoration: const InputDecoration(
-              labelText: 'Feedback', alignLabelWithHint: true, counterText: ''),
-          maxLength: 300,
-          onChanged: (value) {
-            store.setFeedback(routine, value, judge: scoringJudge);
-          },
-        ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -3401,6 +3721,26 @@ class _JudgingPageState extends State<JudgingPage> {
       selection: TextSelection.collapsed(offset: nextText.length),
     );
     setState(() => errorMessage = null);
+  }
+
+  Widget _buildFeedbackControl({
+    required Routine routine,
+    required String scoringJudge,
+  }) {
+    return TextField(
+      controller: feedbackController,
+      minLines: 4,
+      maxLines: 6,
+      decoration: const InputDecoration(
+        labelText: 'Feedback',
+        alignLabelWithHint: true,
+      ),
+      maxLength: feedbackMaxLength,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+      onChanged: (value) {
+        widget.store.setFeedback(routine, value, judge: scoringJudge);
+      },
+    );
   }
 
   Widget _buildPenaltyControl(BuildContext context) {

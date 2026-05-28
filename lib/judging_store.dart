@@ -453,6 +453,22 @@ class JudgingStore extends ChangeNotifier {
     selectJudge(cleanName);
   }
 
+  String? heroImageNameFor(String judge) {
+    final judgeId = stableRemoteId(judge);
+    final judgeKey = normalizedKey(judge);
+    final profiles = appData?.judgeProfiles ?? const <JudgeProfile>[];
+    for (final profile in profiles) {
+      final matchesProfile = profile.judgeId == judgeId ||
+          stableRemoteId(profile.judgeId) == judgeId ||
+          normalizedKey(profile.name) == judgeKey;
+      final heroImageName = profile.heroImageName?.trim();
+      if (matchesProfile && heroImageName != null && heroImageName.isNotEmpty) {
+        return heroImageName;
+      }
+    }
+    return null;
+  }
+
   UserRole roleFor(String judge) {
     if (!androidAdminUserEnabled) return UserRole.judge;
     final judgeId = stableRemoteId(judge);

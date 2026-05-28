@@ -1,4 +1,4 @@
-# Jueceo Coreografías Android Tablet
+# Levitate Android Tablet
 
 Companion Flutter app for Android tablets. It uses the same Supabase schema as the iPad app and keeps the same core workflow: event, judge, routines, score sheet, feedback, scores, dictamen and PDF share.
 
@@ -33,3 +33,25 @@ flutter create . --platforms=android
 - Shows scores and dictamen by Género-Edad-Cantidad with the same average/tie rules as iPad.
 - Exports ranking/dictamen PDF from the tablet.
 - Lets the admin upload an Excel into the `excel_imports` queue in Supabase.
+
+## Self-hosted Android updates
+
+The app checks this GitHub Pages manifest on startup:
+
+```text
+https://matiasez.github.io/JueceoLevitateAndroid/latest.json
+```
+
+To publish a new APK outside Play Store:
+
+1. Bump `version` in `pubspec.yaml`, for example `0.1.1+2`.
+2. Build the APK:
+
+```bash
+flutter build apk --release
+```
+
+3. Create a GitHub Release and upload the APK as `jueceo.apk`.
+4. Update `latest.json` with the new `versionCode`, `versionName`, notes and APK URL.
+
+Android still asks the user to allow installs from this app and confirm the installer. The APK must be signed with the same key as the installed version.

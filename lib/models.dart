@@ -131,11 +131,17 @@ enum FavoriteCategory {
 }
 
 class JudgeProfile {
-  JudgeProfile({required this.judgeId, required this.name, required this.role});
+  JudgeProfile({
+    required this.judgeId,
+    required this.name,
+    required this.role,
+    this.heroImageName,
+  });
 
   final String judgeId;
   final String name;
   final UserRole role;
+  final String? heroImageName;
 
   factory JudgeProfile.fromJson(Map<String, dynamic> json) {
     final rawRole = json['role'] as String? ?? '';
@@ -148,6 +154,8 @@ class JudgeProfile {
       role: rawRole == 'admin' || judgeId == 'ati'
           ? UserRole.admin
           : UserRole.judge,
+      heroImageName: json['hero_image_name'] as String? ??
+          json['heroImageName'] as String?,
     );
   }
 }
