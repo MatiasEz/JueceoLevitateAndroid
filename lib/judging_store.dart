@@ -36,6 +36,7 @@ class JudgingStore extends ChangeNotifier {
   List<EventSummary> events = [];
   EventSummary? selectedEvent;
   AppData? appData;
+  Map<String, List<DanceBlock>> programBlocksByEventId = {};
   String selectedJudge = '';
   String selectedRoutineId = '';
   String? selectedBlockId;
@@ -78,6 +79,19 @@ class JudgingStore extends ChangeNotifier {
       api.isConfigured && syncState == SyncState.connecting;
   String get scoringJudge =>
       isAdmin ? (adminScoringJudge ?? selectedJudge) : selectedJudge;
+  List<EventSummary> get availablePrograms {
+    if (events.isNotEmpty) return events;
+    final sourceName = selectedEvent?.name ?? appData?.sourceName ?? 'Programa';
+    return [
+      EventSummary(
+        id: selectedEvent?.id ?? stableRemoteId(sourceName),
+        slug: stableRemoteId(sourceName),
+        name: sourceName,
+        sourceName: sourceName,
+        isActive: true,
+      ),
+    ];
+  }
 
   DanceBlock? get selectedBlock {
     if (blocks.isEmpty) return null;
@@ -104,6 +118,11 @@ class JudgingStore extends ChangeNotifier {
           routine.block == block.name;
     }).toList();
     return visible.isEmpty ? routines : visible;
+  }
+
+  List<DanceBlock> blocksForProgram(EventSummary event) {
+    if (events.isEmpty || selectedEvent?.id == event.id) return blocks;
+    return programBlocksByEventId[event.id] ?? const [];
   }
 
   Routine? get selectedRoutine {
@@ -258,6 +277,7 @@ class JudgingStore extends ChangeNotifier {
     notifyListeners();
     try {
       events = await api.fetchEvents();
+      programBlocksByEventId = await api.fetchEventBlocks();
       selectedEvent = events.firstWhere(
         (event) => event.id == _prefs?.getString('selectedEventId'),
         orElse: () => events.firstWhere(
@@ -291,6 +311,10 @@ class JudgingStore extends ChangeNotifier {
     try {
       final bundle = await api.fetchBundle(event);
       appData = bundle.appData;
+      programBlocksByEventId = {
+        ...programBlocksByEventId,
+        event.id: bundle.appData.blocks,
+      };
       _normalizeCurrentSelection();
       final judgeById = {
         for (final judge in judges) stableRemoteId(judge): judge
@@ -518,6 +542,21 @@ class JudgingStore extends ChangeNotifier {
       selectRoutine(nextRoutine.id, notify: false);
     }
     notifyListeners();
+  }
+
+  Future<void> selectProgramBlock(EventSummary event, DanceBlock? block) async {
+    final shouldLoadEvent =
+        api.isConfigured && events.isNotEmpty && selectedEvent?.id != event.id;
+    if (shouldLoadEvent) {
+      await selectEvent(event);
+    }
+
+    if (block == null) return;
+    final targetBlock = blocks.firstWhere(
+      (item) => item.blockId == block.blockId || item.name == block.name,
+      orElse: () => block,
+    );
+    selectBlock(targetBlock);
   }
 
   void selectRoutine(String routineId, {bool notify = true}) {

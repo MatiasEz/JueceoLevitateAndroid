@@ -45,6 +45,30 @@ class SupabaseApi {
         .toList();
   }
 
+  Future<Map<String, List<DanceBlock>>> fetchEventBlocks() async {
+    try {
+      final response = await http.get(
+        _endpoint(
+            'blocks?select=event_id,block_id,name,title,sort_order,is_active&order=sort_order.asc'),
+        headers: _headers,
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return const {};
+      }
+
+      final rows = jsonDecode(response.body) as List<dynamic>;
+      final result = <String, List<DanceBlock>>{};
+      for (final row in rows.cast<Map<String, dynamic>>()) {
+        final eventId = row['event_id'] as String? ?? '';
+        if (eventId.isEmpty) continue;
+        result.putIfAbsent(eventId, () => []).add(DanceBlock.fromJson(row));
+      }
+      return result;
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<RemoteBundle> fetchBundle(EventSummary event) async {
     final eventID = Uri.encodeQueryComponent(event.id);
     final blockResponse = await http.get(

@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "0.1.2",
+  "versionCode": 4,
+  "versionName": "0.1.3",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Se quitó el texto del hero en el Home."
+  "notes": "Corrige la conexión online, agrega selector visible de programa y bloque, y mueve el puntaje debajo del feedback."
 }

@@ -14,9 +14,17 @@ import 'judging_store.dart';
 import 'models.dart';
 import 'supabase_api.dart';
 
-const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabasePublishableKey =
-    String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+const defaultSupabaseUrl = 'https://bozkbpirrwjtpmjqcexx.supabase.co';
+const defaultSupabasePublishableKey =
+    'sb_publishable_jZv2loPhbPvameq6bUOgqA_5hEQJ2tc';
+const supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: defaultSupabaseUrl,
+);
+const supabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
+  defaultValue: defaultSupabasePublishableKey,
+);
 const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
 const googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
@@ -242,6 +250,24 @@ class LevitateBrand extends StatelessWidget {
           filterQuality: FilterQuality.high,
         ),
       ),
+    );
+  }
+}
+
+class AppBarProgramTitle extends StatelessWidget {
+  const AppBarProgramTitle({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const LevitateBrand(isCompact: true),
+        const SizedBox(width: 14),
+        Flexible(child: ProgramBlockSelectorButton(store: store)),
+      ],
     );
   }
 }
@@ -672,15 +698,9 @@ class _TabletShellState extends State<TabletShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const LevitateBrand(isCompact: true),
+        title: AppBarProgramTitle(store: store),
         titleSpacing: 20,
         actions: [
-          if (store.isAdmin) ...[
-            EventSelectorButton(store: store),
-            const SizedBox(width: 8),
-            BlockSelectorButton(store: store),
-            const SizedBox(width: 8),
-          ],
           JudgeSelectorButton(store: store),
           const SizedBox(width: 8),
           SyncChip(store: store),
@@ -885,6 +905,135 @@ class BlockSelectorButton extends StatelessWidget {
   }
 }
 
+class ProgramBlockSelection {
+  const ProgramBlockSelection({required this.event, required this.block});
+
+  final EventSummary event;
+  final DanceBlock? block;
+}
+
+class ProgramBlockSelectorButton extends StatelessWidget {
+  const ProgramBlockSelectorButton({
+    super.key,
+    required this.store,
+    this.iconOnly = false,
+  });
+
+  final JudgingStore store;
+  final bool iconOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final programTitle =
+        store.selectedEvent?.name ?? store.appData?.sourceName ?? 'Programa';
+    final blockTitle = store.selectedBlock?.name ?? 'Bloque';
+
+    if (iconOnly) {
+      return PopupMenuButton<ProgramBlockSelection>(
+        tooltip: 'Programa y bloque',
+        onSelected: _select,
+        itemBuilder: _menuItems,
+        icon: const Icon(Icons.account_tree),
+      );
+    }
+
+    return PopupMenuButton<ProgramBlockSelection>(
+      tooltip: 'Programa y bloque',
+      onSelected: _select,
+      itemBuilder: _menuItems,
+      child: HeaderPill(
+        icon: Icons.account_tree,
+        title: programTitle,
+        subtitle: blockTitle,
+      ),
+    );
+  }
+
+  void _select(ProgramBlockSelection selection) {
+    unawaited(store.selectProgramBlock(selection.event, selection.block));
+  }
+
+  List<PopupMenuEntry<ProgramBlockSelection>> _menuItems(
+    BuildContext context,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final programs = store.availablePrograms;
+    final entries = <PopupMenuEntry<ProgramBlockSelection>>[];
+
+    for (var index = 0; index < programs.length; index += 1) {
+      final event = programs[index];
+      final isSelectedEvent = event.id == store.selectedEvent?.id ||
+          (store.events.isEmpty && index == 0);
+      final eventBlocks = store.blocksForProgram(event);
+
+      entries.add(
+        PopupMenuItem<ProgramBlockSelection>(
+          enabled: false,
+          height: 36,
+          child: Text(
+            event.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: isSelectedEvent
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+        ),
+      );
+
+      if (eventBlocks.isEmpty) {
+        entries.add(
+          PopupMenuItem(
+            value: ProgramBlockSelection(event: event, block: null),
+            child: const ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.download),
+              title: Text('Cargar programa'),
+              subtitle: Text('Sin bloques cargados'),
+            ),
+          ),
+        );
+      } else {
+        for (final block in eventBlocks) {
+          final isSelectedBlock =
+              isSelectedEvent && block.blockId == store.selectedBlock?.blockId;
+          final routineCount = isSelectedEvent
+              ? routineCountForBlock(store, block)
+              : block.routines.length;
+          entries.add(
+            PopupMenuItem(
+              value: ProgramBlockSelection(event: event, block: block),
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(isSelectedBlock
+                    ? Icons.check_circle
+                    : Icons.circle_outlined),
+                title: Text(block.name),
+                subtitle: Text(
+                  routineCount > 0
+                      ? '$routineCount coreografías'
+                      : (block.title.isEmpty ? event.name : block.title),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+
+      if (index < programs.length - 1) {
+        entries.add(const PopupMenuDivider());
+      }
+    }
+
+    return entries;
+  }
+}
+
 class JudgeSelectorButton extends StatelessWidget {
   const JudgeSelectorButton({super.key, required this.store});
 
@@ -1036,27 +1185,6 @@ class HeaderPill extends StatelessWidget {
   }
 }
 
-class HomeProgramBlockPicker extends StatelessWidget {
-  const HomeProgramBlockPicker({super.key, required this.store});
-
-  final JudgingStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          EventSelectorButton(store: store),
-          BlockSelectorButton(store: store),
-        ],
-      ),
-    );
-  }
-}
-
 class BackendLoadingOverlay extends StatelessWidget {
   const BackendLoadingOverlay({super.key, required this.message});
 
@@ -1146,8 +1274,6 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
           child: Column(
             children: [
-              HomeProgramBlockPicker(store: store),
-              const SizedBox(height: 18),
               LayoutBuilder(
                 builder: (context, constraints) {
                   Widget metricsGrid() => GridView.count(
@@ -1922,8 +2048,7 @@ class PhoneHomePage extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  EventSelectorButton(store: store),
-                  BlockSelectorButton(store: store),
+                  ProgramBlockSelectorButton(store: store),
                   JudgeSelectorButton(store: store),
                   SyncChip(store: store),
                 ],
@@ -3313,17 +3438,6 @@ class _JudgingPageState extends State<JudgingPage> {
                     onChanged: store.selectRoutine,
                   ),
                   const SizedBox(height: 12),
-                  _buildTotalPanel(
-                    context: context,
-                    routine: routine,
-                    template: template,
-                    scoreSubtotal: scoreSubtotal,
-                    penaltyValue: penaltyValue,
-                    total: total,
-                    maxTotal: maxTotal,
-                    nextRoutine: nextRoutine,
-                  ),
-                  const SizedBox(height: 12),
                   FavoriteButtonsPanel(
                     store: store,
                     routine: routine,
@@ -3335,6 +3449,17 @@ class _JudgingPageState extends State<JudgingPage> {
                   _buildFeedbackControl(
                     routine: routine,
                     scoringJudge: scoringJudge,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTotalPanel(
+                    context: context,
+                    routine: routine,
+                    template: template,
+                    scoreSubtotal: scoreSubtotal,
+                    penaltyValue: penaltyValue,
+                    total: total,
+                    maxTotal: maxTotal,
+                    nextRoutine: nextRoutine,
                   ),
                 ],
               ),
@@ -3654,13 +3779,6 @@ class _JudgingPageState extends State<JudgingPage> {
           scoringJudge: scoringJudge,
         ),
         const SizedBox(height: 12),
-        const SectionHeader(
-          title: 'Puntajes',
-          subtitle: 'Completa cada criterio',
-        ),
-        const SizedBox(height: 10),
-        ..._buildCriteriaSections(template, compact: true),
-        const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -3701,6 +3819,13 @@ class _JudgingPageState extends State<JudgingPage> {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        const SectionHeader(
+          title: 'Puntajes',
+          subtitle: 'Completa cada criterio',
+        ),
+        const SizedBox(height: 10),
+        ..._buildCriteriaSections(template, compact: true),
       ],
     );
   }
