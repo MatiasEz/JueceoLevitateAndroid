@@ -107,9 +107,7 @@ class AppUpdateService {
       );
     }
 
-    final directory =
-        await Directory('${Directory.systemTemp.path}/levitate_updates')
-            .create(recursive: true);
+    final directory = await _downloadDirectory();
     final file = File('${directory.path}/levitate-${update.versionCode}.apk');
     final sink = file.openWrite();
     var receivedBytes = 0;
@@ -146,8 +144,26 @@ class AppUpdateService {
     await _channel.invokeMethod<void>('installApk', {'path': apkFile.path});
   }
 
+  Future<void> openDownloadUrl(Uri url) async {
+    if (!Platform.isAndroid) return;
+    await _channel.invokeMethod<void>('openUrl', {'url': url.toString()});
+  }
+
   Future<int> _currentVersionCode() async {
     return await _channel.invokeMethod<int>('getVersionCode') ?? 0;
+  }
+
+  Future<Directory> _downloadDirectory() async {
+    if (!Platform.isAndroid) {
+      return Directory('${Directory.systemTemp.path}/levitate_updates')
+          .create(recursive: true);
+    }
+
+    final cachePath = await _channel.invokeMethod<String>('getCacheDir');
+    final basePath = cachePath == null || cachePath.isEmpty
+        ? Directory.systemTemp.path
+        : cachePath;
+    return Directory('$basePath/levitate_updates').create(recursive: true);
   }
 
   void close() => _client.close();

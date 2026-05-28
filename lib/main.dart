@@ -431,11 +431,43 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     } catch (error) {
       await _dismissProgressDialog();
       if (mounted) {
-        _showSnackBar('No se pudo instalar la actualización: $error');
+        await _showUpdateFailedDialog(update, error);
       }
     } finally {
       progress.dispose();
       _updating = false;
+    }
+  }
+
+  Future<void> _showUpdateFailedDialog(
+    AppUpdateInfo update,
+    Object error,
+  ) async {
+    if (!mounted) return;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('No se pudo instalar'),
+          content: Text(
+            'Podés descargar la actualización desde el navegador.\n\n$error',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('dismiss'),
+              child: const Text('Cerrar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop('open'),
+              icon: const Icon(Icons.open_in_browser),
+              label: const Text('Abrir descarga'),
+            ),
+          ],
+        );
+      },
+    );
+    if (action == 'open') {
+      await _updateService.openDownloadUrl(update.apkUrl);
     }
   }
 

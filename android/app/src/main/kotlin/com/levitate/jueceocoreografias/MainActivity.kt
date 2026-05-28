@@ -1,8 +1,9 @@
 package com.levitate.jueceocoreografias
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -33,10 +34,19 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getVersionCode" -> result.success(currentVersionCode())
+                    "getCacheDir" -> result.success(cacheDir.absolutePath)
                     "canInstallPackages" -> result.success(canInstallPackages())
                     "openInstallSettings" -> {
                         openInstallSettings()
                         result.success(null)
+                    }
+                    "openUrl" -> {
+                        val url = call.argument<String>("url")
+                        if (url.isNullOrBlank()) {
+                            result.error("MISSING_URL", "Falta la URL.", null)
+                            return@setMethodCallHandler
+                        }
+                        openUrl(url, result)
                     }
                     "installApk" -> {
                         val path = call.argument<String>("path")
@@ -106,12 +116,46 @@ class MainActivity : FlutterActivity() {
             "$packageName.fileprovider",
             apkFile
         )
-        val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
-            data = uri
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             putExtra(Intent.EXTRA_RETURN_RESULT, true)
         }
-        startActivity(intent)
-        result.success(null)
+        try {
+            startActivity(intent)
+            result.success(null)
+        } catch (error: ActivityNotFoundException) {
+            result.error(
+                "INSTALLER_NOT_FOUND",
+                "No se encontro un instalador de APK en este dispositivo.",
+                error.localizedMessage
+            )
+        } catch (error: Exception) {
+            result.error(
+                "INSTALL_FAILED",
+                "Android no pudo abrir el instalador.",
+                error.localizedMessage
+            )
+        }
+    }
+
+    private fun openUrl(url: String, result: MethodChannel.Result) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        try {
+            startActivity(intent)
+            result.success(null)
+        } catch (error: ActivityNotFoundException) {
+            result.error(
+                "BROWSER_NOT_FOUND",
+                "No se encontro una app para abrir el link.",
+                error.localizedMessage
+            )
+        } catch (error: Exception) {
+            result.error(
+                "OPEN_URL_FAILED",
+                "No se pudo abrir el link.",
+                error.localizedMessage
+            )
+        }
     }
 }
