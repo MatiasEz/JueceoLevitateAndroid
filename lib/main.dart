@@ -821,7 +821,7 @@ class EventSelectorButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<EventSummary>(
-      tooltip: 'Evento',
+      tooltip: 'Programa',
       onSelected: (event) {
         store.selectEvent(event);
       },
@@ -843,7 +843,7 @@ class EventSelectorButton extends StatelessWidget {
       ],
       child: HeaderPill(
         icon: Icons.event,
-        title: store.selectedEvent?.name ?? 'Evento',
+        title: store.selectedEvent?.name ?? 'Programa',
         subtitle: '${store.routines.length} coreografías',
       ),
     );
@@ -1036,6 +1036,27 @@ class HeaderPill extends StatelessWidget {
   }
 }
 
+class HomeProgramBlockPicker extends StatelessWidget {
+  const HomeProgramBlockPicker({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          EventSelectorButton(store: store),
+          BlockSelectorButton(store: store),
+        ],
+      ),
+    );
+  }
+}
+
 class BackendLoadingOverlay extends StatelessWidget {
   const BackendLoadingOverlay({super.key, required this.message});
 
@@ -1125,6 +1146,8 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
           child: Column(
             children: [
+              HomeProgramBlockPicker(store: store),
+              const SizedBox(height: 18),
               LayoutBuilder(
                 builder: (context, constraints) {
                   Widget metricsGrid() => GridView.count(
@@ -1912,10 +1935,8 @@ class PhoneHomePage extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (store.isAdmin) ...[
-                    EventSelectorButton(store: store),
-                    BlockSelectorButton(store: store),
-                  ],
+                  EventSelectorButton(store: store),
+                  BlockSelectorButton(store: store),
                   JudgeSelectorButton(store: store),
                   SyncChip(store: store),
                 ],
