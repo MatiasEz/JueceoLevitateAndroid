@@ -1360,19 +1360,6 @@ class DashboardHeroHeader extends StatelessWidget {
                             color: levitPink,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          compact
-                              ? 'Que comience el flow!'
-                              : 'Estás lista para calificar.\nQue comience el flow!',
-                          style: (compact
-                                  ? Theme.of(context).textTheme.bodyLarge
-                                  : Theme.of(context).textTheme.titleMedium)
-                              ?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                       ],
                     ),
                   ),
