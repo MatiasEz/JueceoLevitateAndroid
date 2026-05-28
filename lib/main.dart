@@ -254,24 +254,6 @@ class LevitateBrand extends StatelessWidget {
   }
 }
 
-class AppBarProgramTitle extends StatelessWidget {
-  const AppBarProgramTitle({super.key, required this.store});
-
-  final JudgingStore store;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const LevitateBrand(isCompact: true),
-        const SizedBox(width: 14),
-        Flexible(child: ProgramBlockSelectorButton(store: store)),
-      ],
-    );
-  }
-}
-
 class JueceoTabletApp extends StatelessWidget {
   const JueceoTabletApp({super.key, required this.store});
 
@@ -730,11 +712,9 @@ class _TabletShellState extends State<TabletShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: AppBarProgramTitle(store: store),
+        title: const LevitateBrand(isCompact: true),
         titleSpacing: 20,
         actions: [
-          JudgeSelectorButton(store: store),
-          const SizedBox(width: 8),
           SyncChip(store: store),
           const SizedBox(width: 8),
           IconButton(
@@ -1217,6 +1197,27 @@ class HeaderPill extends StatelessWidget {
   }
 }
 
+class HomeSelectionBar extends StatelessWidget {
+  const HomeSelectionBar({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          ProgramBlockSelectorButton(store: store),
+          JudgeSelectorButton(store: store),
+        ],
+      ),
+    );
+  }
+}
+
 class BackendLoadingOverlay extends StatelessWidget {
   const BackendLoadingOverlay({super.key, required this.message});
 
@@ -1306,6 +1307,8 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
           child: Column(
             children: [
+              HomeSelectionBar(store: store),
+              const SizedBox(height: 18),
               LayoutBuilder(
                 builder: (context, constraints) {
                   Widget metricsGrid() => GridView.count(
@@ -2261,12 +2264,8 @@ class _PhoneAdminPageState extends State<PhoneAdminPage> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Row(
           children: [
-            EventSelectorButton(store: store),
-            BlockSelectorButton(store: store),
             SyncChip(store: store),
           ],
         ),
@@ -3541,7 +3540,7 @@ class _JudgingPageState extends State<JudgingPage> {
                       .textTheme
                       .headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w900)),
-              Text(routineDetailLine(routine),
+              Text(routineDetailLine(routine, includeParticipant: false),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -3774,6 +3773,7 @@ class _JudgingPageState extends State<JudgingPage> {
         PhoneRoutineCard(
           routine: routine,
           selected: true,
+          showParticipant: false,
           favorite: store.hasFavorite(routine),
           footer: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -4821,12 +4821,14 @@ class PhoneRoutineCard extends StatelessWidget {
       {super.key,
       required this.routine,
       required this.selected,
+      this.showParticipant = true,
       this.favorite = false,
       this.footer,
       this.onTap});
 
   final Routine routine;
   final bool selected;
+  final bool showParticipant;
   final bool favorite;
   final Widget? footer;
   final VoidCallback? onTap;
@@ -4874,8 +4876,11 @@ class PhoneRoutineCard extends StatelessWidget {
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w900)),
-                        Text(routineDetailLine(routine),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                            routineDetailLine(routine,
+                                includeParticipant: showParticipant),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
@@ -5461,11 +5466,14 @@ List<Routine> sortedRoutines(List<Routine> routines) {
   return copy;
 }
 
-String routineDetailLine(Routine routine) {
+String routineDetailLine(Routine routine, {bool includeParticipant = true}) {
+  final academy = routine.academy.trim();
   final participant = routine.participant.trim();
-  if (participant.isEmpty) return routine.academy;
-  if (routine.academy.trim().isEmpty) return participant;
-  return '${routine.academy} · $participant';
+  if (!includeParticipant || participant.isEmpty) {
+    return academy.isEmpty ? 'Sin academia' : academy;
+  }
+  if (academy.isEmpty) return participant;
+  return '$academy · $participant';
 }
 
 const allRankingFilter = 'Todas';
