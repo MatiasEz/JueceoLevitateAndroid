@@ -3376,7 +3376,6 @@ class JudgingPage extends StatefulWidget {
 class _JudgingPageState extends State<JudgingPage> {
   final Map<int, TextEditingController> controllers = {};
   final feedbackController = TextEditingController();
-  final penaltyController = TextEditingController();
   String penaltySelection = '0';
   String? loadedRoutineId;
   String? loadedJudge;
@@ -3388,7 +3387,6 @@ class _JudgingPageState extends State<JudgingPage> {
       controller.dispose();
     }
     feedbackController.dispose();
-    penaltyController.dispose();
     super.dispose();
   }
 
@@ -3909,7 +3907,7 @@ class _JudgingPageState extends State<JudgingPage> {
   }
 
   Widget _buildPenaltyControl(BuildContext context) {
-    const options = ['0', '-1', '-2', 'Otro'];
+    const options = ['0', '-1', '-2'];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -3929,36 +3927,12 @@ class _JudgingPageState extends State<JudgingPage> {
                     onSelected: (_) {
                       setState(() {
                         penaltySelection = option;
-                        if (option != 'Otro') {
-                          penaltyController.clear();
-                        }
                         errorMessage = null;
                       });
                     },
                   ),
               ],
             ),
-            if (penaltySelection == 'Otro') ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: penaltyController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    signed: true,
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[-0-9,.]')),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: 'Valor',
-                    helperText: 'Entre -100 y 0',
-                  ),
-                  onChanged: (_) => setState(() => errorMessage = null),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -4021,33 +3995,17 @@ class _JudgingPageState extends State<JudgingPage> {
   }
 
   void _loadPenalty(double value) {
-    if (value.abs() < 0.0001) {
-      penaltySelection = '0';
-      penaltyController.clear();
-    } else if ((value + 1).abs() < 0.0001) {
-      penaltySelection = '-1';
-      penaltyController.clear();
-    } else if ((value + 2).abs() < 0.0001) {
+    if (value <= -1.5) {
       penaltySelection = '-2';
-      penaltyController.clear();
+    } else if (value <= -0.5) {
+      penaltySelection = '-1';
     } else {
-      penaltySelection = 'Otro';
-      penaltyController.text = _scoreText(value);
+      penaltySelection = '0';
     }
   }
 
   double _currentPenaltyValue() {
-    if (penaltySelection != 'Otro') {
-      return double.tryParse(penaltySelection) ?? 0;
-    }
-    final value =
-        double.tryParse(penaltyController.text.replaceAll(',', '.')) ?? 0;
-    return _normalizedPenalty(value);
-  }
-
-  double _normalizedPenalty(double value) {
-    final signed = value > 0 ? -value : value;
-    return signed.clamp(-100.0, 0.0).toDouble();
+    return double.tryParse(penaltySelection) ?? 0;
   }
 }
 

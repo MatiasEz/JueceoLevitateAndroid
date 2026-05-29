@@ -1,7 +1,7 @@
 {
-  "versionCode": 6,
-  "versionName": "0.1.5",
+  "versionCode": 7,
+  "versionName": "0.1.6",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Limita la seleccion de programa, bloque y juez al Home, y oculta el participante en la hoja de jueceo."
+  "notes": "Quita la opcion Otro de penalizaciones en la hoja de jueceo."
 }
