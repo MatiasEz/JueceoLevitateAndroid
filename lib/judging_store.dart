@@ -12,6 +12,21 @@ enum SyncState { localOnly, connecting, online, syncing, pending, offline }
 const bundledAppDataAsset = 'assets/data/app_data.json';
 const androidAdminUserEnabled = false;
 const androidAdminJudgeIds = {'admin', 'ati'};
+const feedbackMaxLength = 350;
+const _legacyScoresKey = 'scores';
+const _legacyFeedbackKey = 'feedback';
+const _legacyPenaltiesKey = 'penalties';
+const _legacyFavoriteSelectionsKey = 'favoriteSelections';
+const _scoresPendingKey = 'scores.pending.v2';
+const _feedbackPendingKey = 'feedback.pending.v2';
+const _penaltiesPendingKey = 'penalties.pending.v2';
+const _favoriteSelectionsPendingKey = 'favoriteSelections.pending.v2';
+
+void _loadLog(String message) {
+  if (kDebugMode) {
+    debugPrint('[LevitateLoad] $message');
+  }
+}
 
 class ExcelImportSummary {
   ExcelImportSummary({
@@ -239,15 +254,11 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    final watch = Stopwatch()..start();
     _prefs = await SharedPreferences.getInstance();
     selectedJudge = _prefs?.getString('selectedJudge') ?? '';
     selectedRoutineId = _prefs?.getString('selectedRoutineId') ?? '';
     selectedBlockId = _prefs?.getString('selectedBlockId');
-    scores.addAll(_decodeDoubleMap(_prefs?.getString('scores') ?? '{}'));
-    feedback.addAll(_decodeStringMap(_prefs?.getString('feedback') ?? '{}'));
-    penalties.addAll(_decodeDoubleMap(_prefs?.getString('penalties') ?? '{}'));
-    favoriteSelections.addAll(
-        _decodeStringMap(_prefs?.getString('favoriteSelections') ?? '{}'));
     pendingScoreKeys
         .addAll(_prefs?.getStringList('pendingScoreKeys') ?? const []);
     pendingFeedbackKeys
@@ -256,6 +267,37 @@ class JudgingStore extends ChangeNotifier {
         .addAll(_prefs?.getStringList('pendingPenaltyKeys') ?? const []);
     pendingFavoriteKeys
         .addAll(_prefs?.getStringList('pendingFavoriteKeys') ?? const []);
+    if (api.isConfigured) {
+      scores.addAll(
+          _decodeDoubleMap(_prefs?.getString(_scoresPendingKey) ?? '{}'));
+      feedback.addAll(
+          _decodeStringMap(_prefs?.getString(_feedbackPendingKey) ?? '{}'));
+      penalties.addAll(
+          _decodeDoubleMap(_prefs?.getString(_penaltiesPendingKey) ?? '{}'));
+      favoriteSelections.addAll(_decodeStringMap(
+          _prefs?.getString(_favoriteSelectionsPendingKey) ?? '{}'));
+      _recoverPendingValuesFromLegacyCacheIfNeeded();
+      _retainPendingLocalCacheOnly();
+      await _clearLegacyRemoteCache();
+      await _persistAll();
+    } else {
+      scores.addAll(_decodeDoubleMap(_prefs?.getString(_scoresPendingKey) ??
+          _prefs?.getString(_legacyScoresKey) ??
+          '{}'));
+      feedback.addAll(_decodeStringMap(_prefs?.getString(_feedbackPendingKey) ??
+          _prefs?.getString(_legacyFeedbackKey) ??
+          '{}'));
+      penalties.addAll(_decodeDoubleMap(
+          _prefs?.getString(_penaltiesPendingKey) ??
+              _prefs?.getString(_legacyPenaltiesKey) ??
+              '{}'));
+      favoriteSelections.addAll(_decodeStringMap(
+          _prefs?.getString(_favoriteSelectionsPendingKey) ??
+              _prefs?.getString(_legacyFavoriteSelectionsKey) ??
+              '{}'));
+    }
+    _loadLog(
+        'initialize localScores=${scores.length} localFeedback=${feedback.length} localPenalties=${penalties.length} localFavorites=${favoriteSelections.length} pending=$pendingCount remoteConfigured=${api.isConfigured} elapsed=${watch.elapsedMilliseconds}ms');
 
     await _loadBundledAppData();
     _normalizeCurrentSelection();
@@ -303,13 +345,17 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Future<void> selectEvent(EventSummary event) async {
+    final watch = Stopwatch()..start();
     selectedEvent = event;
     await _prefs?.setString('selectedEventId', event.id);
     syncState = SyncState.connecting;
     syncMessage = 'Cargando ${event.name} desde Supabase...';
     notifyListeners();
+    _loadLog('selectEvent started id=${event.id} name="${event.name}"');
     try {
       final bundle = await api.fetchBundle(event);
+      _loadLog(
+          'selectEvent fetched bundle scores=${bundle.scores.length} feedback=${bundle.feedback.length} penalties=${bundle.penalties.length} favorites=${bundle.favorites.length} elapsed=${watch.elapsedMilliseconds}ms');
       appData = bundle.appData;
       programBlocksByEventId = {
         ...programBlocksByEventId,
@@ -319,6 +365,9 @@ class JudgingStore extends ChangeNotifier {
       final judgeById = {
         for (final judge in judges) stableRemoteId(judge): judge
       };
+      _pruneSyncedInMemoryCache();
+      var appliedScores = 0;
+      var skippedPendingScores = 0;
       for (final remoteScore in bundle.scores) {
         final judge = judgeById[remoteScore.judgeId];
         if (judge == null) continue;
@@ -326,22 +375,35 @@ class JudgingStore extends ChangeNotifier {
             scoreKey(remoteScore.routineId, judge, remoteScore.criterionId);
         if (!pendingScoreKeys.contains(key)) {
           scores[key] = remoteScore.value;
+          appliedScores += 1;
+        } else {
+          skippedPendingScores += 1;
         }
       }
+      var appliedFeedback = 0;
+      var skippedPendingFeedback = 0;
       for (final remoteFeedback in bundle.feedback) {
         final judge = judgeById[remoteFeedback.judgeId];
         if (judge == null) continue;
         final key = feedbackKey(remoteFeedback.routineId, judge);
         if (!pendingFeedbackKeys.contains(key)) {
           feedback[key] = remoteFeedback.body;
+          appliedFeedback += 1;
+        } else {
+          skippedPendingFeedback += 1;
         }
       }
+      var appliedPenalties = 0;
+      var skippedPendingPenalties = 0;
       for (final remotePenalty in bundle.penalties) {
         final judge = judgeById[remotePenalty.judgeId];
         if (judge == null) continue;
         final key = penaltyKey(remotePenalty.routineId, judge);
         if (!pendingPenaltyKeys.contains(key)) {
           penalties[key] = remotePenalty.value.clamp(-100, 0).toDouble();
+          appliedPenalties += 1;
+        } else {
+          skippedPendingPenalties += 1;
         }
       }
       final eventPrefix = '${event.id}::';
@@ -366,10 +428,16 @@ class JudgingStore extends ChangeNotifier {
         }
       }
       await _persistAll();
+      _loadLog(
+          'selectEvent applied scores=$appliedScores skippedScores=$skippedPendingScores feedback=$appliedFeedback skippedFeedback=$skippedPendingFeedback penalties=$appliedPenalties skippedPenalties=$skippedPendingPenalties localScores=${scores.length} elapsed=${watch.elapsedMilliseconds}ms');
       await syncPending();
+      _loadLog(
+          'selectEvent finished pending=$pendingCount elapsed=${watch.elapsedMilliseconds}ms');
     } catch (error) {
       syncState = pendingCount > 0 ? SyncState.pending : SyncState.offline;
       syncMessage = '$error';
+      _loadLog(
+          'selectEvent failed elapsed=${watch.elapsedMilliseconds}ms error=$error');
       notifyListeners();
     }
   }
@@ -620,7 +688,9 @@ class JudgingStore extends ChangeNotifier {
       {String? judge}) async {
     final activeJudge = judge ?? scoringJudge;
     final key = feedbackKey(routine.id, activeJudge);
-    feedback[key] = body.length > 300 ? body.substring(0, 300) : body;
+    feedback[key] = body.length > feedbackMaxLength
+        ? body.substring(0, feedbackMaxLength)
+        : body;
     pendingFeedbackKeys.add(key);
     await _persistAll();
     syncState = SyncState.pending;
@@ -888,11 +958,11 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Future<void> _persistAll() async {
-    await _prefs?.setString('scores', jsonEncode(scores));
-    await _prefs?.setString('feedback', jsonEncode(feedback));
-    await _prefs?.setString('penalties', jsonEncode(penalties));
-    await _prefs?.setString(
-        'favoriteSelections', jsonEncode(favoriteSelections));
+    await _setEncodedMap(_scoresPendingKey, _scoresForStorage());
+    await _setEncodedMap(_feedbackPendingKey, _feedbackForStorage());
+    await _setEncodedMap(_penaltiesPendingKey, _penaltiesForStorage());
+    await _setEncodedMap(
+        _favoriteSelectionsPendingKey, _favoriteSelectionsForStorage());
     await _prefs?.setStringList(
         'pendingScoreKeys', pendingScoreKeys.toList()..sort());
     await _prefs?.setStringList(
@@ -901,6 +971,88 @@ class JudgingStore extends ChangeNotifier {
         'pendingPenaltyKeys', pendingPenaltyKeys.toList()..sort());
     await _prefs?.setStringList(
         'pendingFavoriteKeys', pendingFavoriteKeys.toList()..sort());
+  }
+
+  Future<void> _setEncodedMap(String key, Map<String, Object?> value) async {
+    if (value.isEmpty) {
+      await _prefs?.remove(key);
+      return;
+    }
+    await _prefs?.setString(key, jsonEncode(value));
+  }
+
+  Map<String, double> _scoresForStorage() {
+    if (!api.isConfigured) return scores;
+    return {
+      for (final key in pendingScoreKeys)
+        if (scores.containsKey(key)) key: scores[key]!,
+    };
+  }
+
+  Map<String, String> _feedbackForStorage() {
+    if (!api.isConfigured) return feedback;
+    return {
+      for (final key in pendingFeedbackKeys)
+        if (feedback.containsKey(key)) key: feedback[key]!,
+    };
+  }
+
+  Map<String, double> _penaltiesForStorage() {
+    if (!api.isConfigured) return penalties;
+    return {
+      for (final key in pendingPenaltyKeys)
+        if (penalties.containsKey(key)) key: penalties[key]!,
+    };
+  }
+
+  Map<String, String> _favoriteSelectionsForStorage() {
+    if (!api.isConfigured) return favoriteSelections;
+    return {
+      for (final key in pendingFavoriteKeys)
+        if (favoriteSelections.containsKey(key)) key: favoriteSelections[key]!,
+    };
+  }
+
+  void _pruneSyncedInMemoryCache() {
+    scores.removeWhere((key, _) => !pendingScoreKeys.contains(key));
+    feedback.removeWhere((key, _) => !pendingFeedbackKeys.contains(key));
+    penalties.removeWhere((key, _) => !pendingPenaltyKeys.contains(key));
+  }
+
+  void _retainPendingLocalCacheOnly() {
+    _pruneSyncedInMemoryCache();
+    favoriteSelections
+        .removeWhere((key, _) => !pendingFavoriteKeys.contains(key));
+  }
+
+  void _recoverPendingValuesFromLegacyCacheIfNeeded() {
+    if (pendingScoreKeys.isNotEmpty && scores.isEmpty) {
+      _loadLog('recovering pending scores from legacy SharedPreferences');
+      scores.addAll(
+          _decodeDoubleMap(_prefs?.getString(_legacyScoresKey) ?? '{}'));
+    }
+    if (pendingFeedbackKeys.isNotEmpty && feedback.isEmpty) {
+      _loadLog('recovering pending feedback from legacy SharedPreferences');
+      feedback.addAll(
+          _decodeStringMap(_prefs?.getString(_legacyFeedbackKey) ?? '{}'));
+    }
+    if (pendingPenaltyKeys.isNotEmpty && penalties.isEmpty) {
+      _loadLog('recovering pending penalties from legacy SharedPreferences');
+      penalties.addAll(
+          _decodeDoubleMap(_prefs?.getString(_legacyPenaltiesKey) ?? '{}'));
+    }
+    if (pendingFavoriteKeys.isNotEmpty && favoriteSelections.isEmpty) {
+      _loadLog('recovering pending favorites from legacy SharedPreferences');
+      favoriteSelections.addAll(_decodeStringMap(
+          _prefs?.getString(_legacyFavoriteSelectionsKey) ?? '{}'));
+    }
+  }
+
+  Future<void> _clearLegacyRemoteCache() async {
+    await _prefs?.remove(_legacyScoresKey);
+    await _prefs?.remove(_legacyFeedbackKey);
+    await _prefs?.remove(_legacyPenaltiesKey);
+    await _prefs?.remove(_legacyFavoriteSelectionsKey);
   }
 
   Future<void> _loadBundledAppData() async {

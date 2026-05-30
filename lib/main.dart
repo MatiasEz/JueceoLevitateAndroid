@@ -33,8 +33,6 @@ const googleDriveRootFolder = String.fromEnvironment(
   defaultValue: 'Levitate CDMX 2026',
 );
 const addJudgeMenuValue = '__add_judge__';
-const feedbackMaxLength = 300;
-
 const levitPink = Color(0xffed2a72);
 const levitateLogoAsset = 'assets/images/levitate_logo.png';
 const levitateDancerHeroAsset = 'assets/images/levitate_dancer_hero.png';
@@ -3380,6 +3378,7 @@ class _JudgingPageState extends State<JudgingPage> {
   String? loadedRoutineId;
   String? loadedJudge;
   String? errorMessage;
+  bool resetPenaltyOnNextDraft = false;
 
   @override
   void dispose() {
@@ -3907,7 +3906,7 @@ class _JudgingPageState extends State<JudgingPage> {
   }
 
   Widget _buildPenaltyControl(BuildContext context) {
-    const options = ['0', '-1', '-2'];
+    const options = ['0', '-1', '-2', '-3'];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -3955,7 +3954,12 @@ class _JudgingPageState extends State<JudgingPage> {
     }
     feedbackController.text =
         store.feedback[store.feedbackKey(routine.id, judge)] ?? '';
-    _loadPenalty(store.penaltyFor(routine, judge));
+    if (resetPenaltyOnNextDraft) {
+      penaltySelection = '0';
+      resetPenaltyOnNextDraft = false;
+    } else {
+      _loadPenalty(store.penaltyFor(routine, judge));
+    }
     loadedRoutineId = routine.id;
     loadedJudge = judge;
     errorMessage = null;
@@ -3985,6 +3989,7 @@ class _JudgingPageState extends State<JudgingPage> {
       final routines = sortedRoutines(widget.store.visibleRoutines);
       final currentIndex = routines.indexWhere((item) => item.id == routine.id);
       if (currentIndex >= 0 && currentIndex + 1 < routines.length) {
+        resetPenaltyOnNextDraft = true;
         widget.store.selectRoutine(routines[currentIndex + 1].id);
       }
     }
@@ -3995,7 +4000,9 @@ class _JudgingPageState extends State<JudgingPage> {
   }
 
   void _loadPenalty(double value) {
-    if (value <= -1.5) {
+    if (value <= -2.5) {
+      penaltySelection = '-3';
+    } else if (value <= -1.5) {
       penaltySelection = '-2';
     } else if (value <= -0.5) {
       penaltySelection = '-1';

@@ -1,7 +1,7 @@
 {
-  "versionCode": 7,
-  "versionName": "0.1.6",
+  "versionCode": 9,
+  "versionName": "0.1.8",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Quita la opcion Otro de penalizaciones en la hoja de jueceo."
+  "notes": "Optimiza la carga inicial, agrega penalización -3, amplía feedback a 350 caracteres y reinicia la penalización al avanzar."
 }
