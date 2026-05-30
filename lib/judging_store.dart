@@ -274,13 +274,13 @@ class JudgingStore extends ChangeNotifier {
         .addAll(_prefs?.getStringList('pendingFavoriteKeys') ?? const []);
     if (api.isConfigured) {
       scores.addAll(
-          _decodeDoubleMap(_prefs?.getString(_scoresPendingKey) ?? '{}'));
-      feedback.addAll(
-          _decodeStringMap(_prefs?.getString(_feedbackPendingKey) ?? '{}'));
-      penalties.addAll(
-          _decodeDoubleMap(_prefs?.getString(_penaltiesPendingKey) ?? '{}'));
-      favoriteSelections.addAll(_decodeStringMap(
-          _prefs?.getString(_favoriteSelectionsPendingKey) ?? '{}'));
+          await _loadPendingDoubleMap(_scoresPendingKey, pendingScoreKeys));
+      feedback.addAll(await _loadPendingStringMap(
+          _feedbackPendingKey, pendingFeedbackKeys));
+      penalties.addAll(await _loadPendingDoubleMap(
+          _penaltiesPendingKey, pendingPenaltyKeys));
+      favoriteSelections.addAll(await _loadPendingStringMap(
+          _favoriteSelectionsPendingKey, pendingFavoriteKeys));
       _recoverPendingValuesFromLegacyCacheIfNeeded();
       _retainPendingLocalCacheOnly();
       await _clearLegacyRemoteCache();
@@ -1028,8 +1028,37 @@ class JudgingStore extends ChangeNotifier {
     await _prefs?.setString(key, jsonEncode(value));
   }
 
+  Future<Map<String, double>> _loadPendingDoubleMap(
+    String storageKey,
+    Set<String> pendingKeys,
+  ) async {
+    if (pendingKeys.isEmpty) {
+      await _prefs?.remove(storageKey);
+      return const {};
+    }
+    final raw = _prefs?.getString(storageKey);
+    if (raw == null || raw.isEmpty) return const {};
+    final decoded = _decodeDoubleMap(raw);
+    decoded.removeWhere((key, _) => !pendingKeys.contains(key));
+    return decoded;
+  }
+
+  Future<Map<String, String>> _loadPendingStringMap(
+    String storageKey,
+    Set<String> pendingKeys,
+  ) async {
+    if (pendingKeys.isEmpty) {
+      await _prefs?.remove(storageKey);
+      return const {};
+    }
+    final raw = _prefs?.getString(storageKey);
+    if (raw == null || raw.isEmpty) return const {};
+    final decoded = _decodeStringMap(raw);
+    decoded.removeWhere((key, _) => !pendingKeys.contains(key));
+    return decoded;
+  }
+
   Map<String, double> _scoresForStorage() {
-    if (!api.isConfigured) return scores;
     return {
       for (final key in pendingScoreKeys)
         if (scores.containsKey(key)) key: scores[key]!,
@@ -1037,7 +1066,6 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Map<String, String> _feedbackForStorage() {
-    if (!api.isConfigured) return feedback;
     return {
       for (final key in pendingFeedbackKeys)
         if (feedback.containsKey(key)) key: feedback[key]!,
@@ -1045,7 +1073,6 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Map<String, double> _penaltiesForStorage() {
-    if (!api.isConfigured) return penalties;
     return {
       for (final key in pendingPenaltyKeys)
         if (penalties.containsKey(key)) key: penalties[key]!,
@@ -1053,7 +1080,6 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Map<String, String> _favoriteSelectionsForStorage() {
-    if (!api.isConfigured) return favoriteSelections;
     return {
       for (final key in pendingFavoriteKeys)
         if (favoriteSelections.containsKey(key)) key: favoriteSelections[key]!,

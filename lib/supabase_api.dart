@@ -7,6 +7,8 @@ import 'models.dart';
 class SupabaseApi {
   SupabaseApi({required this.url, required this.anonKey});
 
+  static const int _pageSize = 1000;
+
   final String url;
   final String anonKey;
 
@@ -47,16 +49,8 @@ class SupabaseApi {
 
   Future<Map<String, List<DanceBlock>>> fetchEventBlocks() async {
     try {
-      final response = await http.get(
-        _endpoint(
-            'blocks?select=event_id,block_id,name,title,sort_order,is_active&order=sort_order.asc'),
-        headers: _headers,
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return const {};
-      }
-
-      final rows = jsonDecode(response.body) as List<dynamic>;
+      final rows = await _getAllRows(
+          'blocks?select=event_id,block_id,name,title,sort_order,is_active&order=event_id.asc,sort_order.asc,block_id.asc');
       final result = <String, List<DanceBlock>>{};
       for (final row in rows.cast<Map<String, dynamic>>()) {
         final eventId = row['event_id'] as String? ?? '';
@@ -71,49 +65,33 @@ class SupabaseApi {
 
   Future<RemoteBundle> fetchBundle(EventSummary event) async {
     final eventID = Uri.encodeQueryComponent(event.id);
-    final blockResponse = await http.get(
-      _endpoint('blocks?select=*&event_id=eq.$eventID&order=sort_order.asc'),
-      headers: _headers,
+    final blockRows = await _getAllRows(
+      'blocks?select=*&event_id=eq.$eventID&order=sort_order.asc,block_id.asc',
     );
-    final blockRows =
-        blockResponse.statusCode >= 200 && blockResponse.statusCode < 300
-            ? jsonDecode(blockResponse.body) as List<dynamic>
-            : <dynamic>[];
-    final responses = await Future.wait([
-      http.get(
-          _endpoint(
-              'routines?select=*&event_id=eq.$eventID&order=sort_order.asc'),
-          headers: _headers),
-      http.get(
-          _endpoint(
-              'judges?select=*&event_id=eq.$eventID&order=sort_order.asc'),
-          headers: _headers),
-      http.get(
-          _endpoint(
-              'criteria_templates?select=*&event_id=eq.$eventID&order=sort_order.asc'),
-          headers: _headers),
-      http.get(
-          _endpoint(
-              'criteria?select=*&event_id=eq.$eventID&order=sort_order.asc'),
-          headers: _headers),
-      http.get(_endpoint('scores?select=*&event_id=eq.$eventID'),
-          headers: _headers),
-      http.get(_endpoint('feedback?select=*&event_id=eq.$eventID'),
-          headers: _headers),
-      http.get(_endpoint('penalties?select=*&event_id=eq.$eventID'),
-          headers: _headers),
+    final rows = await Future.wait([
+      _getAllRows(
+          'routines?select=*&event_id=eq.$eventID&order=sort_order.asc,routine_id.asc'),
+      _getAllRows(
+          'judges?select=*&event_id=eq.$eventID&order=sort_order.asc,judge_id.asc'),
+      _getAllRows(
+          'criteria_templates?select=*&event_id=eq.$eventID&order=sort_order.asc,template_id.asc'),
+      _getAllRows(
+          'criteria?select=*&event_id=eq.$eventID&order=sort_order.asc,criterion_id.asc'),
+      _getAllRows(
+          'scores?select=*&event_id=eq.$eventID&order=routine_id.asc,judge_id.asc,criterion_id.asc'),
+      _getAllRows(
+          'feedback?select=*&event_id=eq.$eventID&order=routine_id.asc,judge_id.asc'),
+      _getAllRows(
+          'penalties?select=*&event_id=eq.$eventID&order=routine_id.asc,judge_id.asc'),
     ]);
-    for (final response in responses) {
-      _throwIfFailed(response);
-    }
 
-    final routineRows = jsonDecode(responses[0].body) as List<dynamic>;
-    final judgeRows = jsonDecode(responses[1].body) as List<dynamic>;
-    final templateRows = jsonDecode(responses[2].body) as List<dynamic>;
-    final criterionRows = jsonDecode(responses[3].body) as List<dynamic>;
-    final scoreRows = jsonDecode(responses[4].body) as List<dynamic>;
-    final feedbackRows = jsonDecode(responses[5].body) as List<dynamic>;
-    final penaltyRows = jsonDecode(responses[6].body) as List<dynamic>;
+    final routineRows = rows[0];
+    final judgeRows = rows[1];
+    final templateRows = rows[2];
+    final criterionRows = rows[3];
+    final scoreRows = rows[4];
+    final feedbackRows = rows[5];
+    final penaltyRows = rows[6];
     final favoriteRows = await _fetchFavorites(eventID);
 
     final routines = routineRows
@@ -306,16 +284,34 @@ class SupabaseApi {
 
   Future<List<dynamic>> _fetchFavorites(String eventID) async {
     try {
-      final response = await http.get(
-        _endpoint('routine_favorites?select=*&event_id=eq.$eventID'),
-        headers: _headers,
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return const [];
-      }
-      return jsonDecode(response.body) as List<dynamic>;
+      return await _getAllRows(
+          'routine_favorites?select=*&event_id=eq.$eventID&order=block_id.asc,judge_id.asc,category.asc');
     } catch (_) {
       return const [];
+    }
+  }
+
+  Future<List<dynamic>> _getAllRows(String path,
+      {int pageSize = _pageSize}) async {
+    final rows = <dynamic>[];
+    var start = 0;
+    while (true) {
+      final end = start + pageSize - 1;
+      final response = await http.get(
+        _endpoint(path),
+        headers: {
+          ..._headers,
+          'Range-Unit': 'items',
+          'Range': '$start-$end',
+        },
+      );
+      _throwIfFailed(response);
+      final page = jsonDecode(response.body) as List<dynamic>;
+      rows.addAll(page);
+      if (page.length < pageSize) {
+        return rows;
+      }
+      start += pageSize;
     }
   }
 
