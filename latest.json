@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "0.1.8",
+  "versionCode": 10,
+  "versionName": "0.1.9",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Optimiza la carga inicial, agrega penalización -3, amplía feedback a 350 caracteres y reinicia la penalización al avanzar."
+  "notes": "La hoja de jueceo vuelve al inicio al entrar a una rutina o usar Guardar y siguiente."
 }

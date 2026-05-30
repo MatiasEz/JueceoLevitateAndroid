@@ -3374,6 +3374,7 @@ class JudgingPage extends StatefulWidget {
 class _JudgingPageState extends State<JudgingPage> {
   final Map<int, TextEditingController> controllers = {};
   final feedbackController = TextEditingController();
+  final sheetScrollController = ScrollController();
   String penaltySelection = '0';
   String? loadedRoutineId;
   String? loadedJudge;
@@ -3386,6 +3387,7 @@ class _JudgingPageState extends State<JudgingPage> {
       controller.dispose();
     }
     feedbackController.dispose();
+    sheetScrollController.dispose();
     super.dispose();
   }
 
@@ -3439,6 +3441,7 @@ class _JudgingPageState extends State<JudgingPage> {
     }
 
     return ListView(
+      controller: sheetScrollController,
       padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
       children: [
         _buildJudgingHeader(
@@ -3725,6 +3728,7 @@ class _JudgingPageState extends State<JudgingPage> {
         maxTotal <= 0 ? 0.0 : (total / maxTotal).clamp(0.0, 1.0).toDouble();
     final hasIncompleteScores = _hasIncompleteScores(template);
     return ListView(
+      controller: sheetScrollController,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
         if (widget.onBack != null) ...[
@@ -3963,6 +3967,16 @@ class _JudgingPageState extends State<JudgingPage> {
     loadedRoutineId = routine.id;
     loadedJudge = judge;
     errorMessage = null;
+    _scrollToTopOnNextFrame();
+  }
+
+  void _scrollToTopOnNextFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !sheetScrollController.hasClients) return;
+      sheetScrollController.jumpTo(
+        sheetScrollController.position.minScrollExtent,
+      );
+    });
   }
 
   Future<void> _save(Routine routine, JudgingTemplate template,
