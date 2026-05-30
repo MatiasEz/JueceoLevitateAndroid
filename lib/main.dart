@@ -540,6 +540,11 @@ class _PhoneShellState extends State<PhoneShell> {
   void navigate(AppSection target) {
     if (!canOpenSection(target, widget.store)) return;
     setState(() => section = target);
+    if (target != AppSection.judging) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(widget.store.reportHome());
+      });
+    }
   }
 
   @override
@@ -697,6 +702,11 @@ class _TabletShellState extends State<TabletShell> {
   void navigate(AppSection target) {
     if (!canOpenSection(target, widget.store)) return;
     setState(() => section = target);
+    if (target != AppSection.judging) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(widget.store.reportHome());
+      });
+    }
   }
 
   @override
@@ -3187,6 +3197,7 @@ class ScoreStepperField extends StatelessWidget {
     super.key,
     required this.criterion,
     required this.controller,
+    required this.focusNode,
     required this.onChanged,
     required this.onDecrement,
     required this.onIncrement,
@@ -3195,6 +3206,7 @@ class ScoreStepperField extends StatelessWidget {
 
   final Criterion criterion;
   final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
@@ -3210,6 +3222,7 @@ class ScoreStepperField extends StatelessWidget {
           const SizedBox(height: 10),
           _ScoreStepperControls(
             controller: controller,
+            focusNode: focusNode,
             criterion: criterion,
             onChanged: onChanged,
             onDecrement: onDecrement,
@@ -3236,6 +3249,7 @@ class ScoreStepperField extends StatelessWidget {
           const SizedBox(width: 14),
           _ScoreStepperControls(
             controller: controller,
+            focusNode: focusNode,
             criterion: criterion,
             onChanged: onChanged,
             onDecrement: onDecrement,
@@ -3289,6 +3303,7 @@ class _ScoreCriterionLabel extends StatelessWidget {
 class _ScoreStepperControls extends StatelessWidget {
   const _ScoreStepperControls({
     required this.controller,
+    required this.focusNode,
     required this.criterion,
     required this.onChanged,
     required this.onDecrement,
@@ -3297,6 +3312,7 @@ class _ScoreStepperControls extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final Criterion criterion;
   final ValueChanged<String> onChanged;
   final VoidCallback onDecrement;
@@ -3307,6 +3323,7 @@ class _ScoreStepperControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final input = TextField(
       controller: controller,
+      focusNode: focusNode,
       textAlign: TextAlign.center,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
@@ -3373,18 +3390,28 @@ class JudgingPage extends StatefulWidget {
 
 class _JudgingPageState extends State<JudgingPage> {
   final Map<int, TextEditingController> controllers = {};
+  final Map<int, FocusNode> focusNodes = {};
+  final Map<int, GlobalKey> criterionKeys = {};
   final feedbackController = TextEditingController();
   final sheetScrollController = ScrollController();
   String penaltySelection = '0';
   String? loadedRoutineId;
   String? loadedJudge;
+  Routine? reportedRoutine;
   String? errorMessage;
   bool resetPenaltyOnNextDraft = false;
 
   @override
   void dispose() {
+    final routine = reportedRoutine ?? widget.store.selectedRoutine;
+    if (routine != null) {
+      unawaited(widget.store.reportLeftSheet(routine));
+    }
     for (final controller in controllers.values) {
       controller.dispose();
+    }
+    for (final focusNode in focusNodes.values) {
+      focusNode.dispose();
     }
     feedbackController.dispose();
     sheetScrollController.dispose();
@@ -3404,6 +3431,7 @@ class _JudgingPageState extends State<JudgingPage> {
     final scoringJudge = store.scoringJudge;
     final template = store.templateFor(routine);
     _loadDraftIfNeeded(store, routine, scoringJudge, template);
+    _reportRoutineActivityIfNeeded(routine);
     final scoreSubtotal = template.criteria.fold<double>(0, (sum, criterion) {
       return sum +
           (double.tryParse(
@@ -3507,6 +3535,29 @@ class _JudgingPageState extends State<JudgingPage> {
         ),
       ],
     );
+  }
+
+  void _reportRoutineActivityIfNeeded(Routine routine) {
+    if (reportedRoutine?.id == routine.id) return;
+    final previousRoutine = reportedRoutine;
+    reportedRoutine = routine;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_reportRoutineTransition(
+        previousRoutine: previousRoutine,
+        nextRoutine: routine,
+      ));
+    });
+  }
+
+  Future<void> _reportRoutineTransition({
+    required Routine? previousRoutine,
+    required Routine nextRoutine,
+  }) async {
+    if (previousRoutine != null) {
+      await widget.store.reportLeftSheet(previousRoutine);
+    }
+    await widget.store.reportEnteredSheet(nextRoutine);
   }
 
   Widget _buildJudgingHeader({
@@ -3650,12 +3701,13 @@ class _JudgingPageState extends State<JudgingPage> {
       width: double.infinity,
       child: FilledButton.icon(
         onPressed: () {
-          _save(routine, template, advance: hasNextRoutine);
+          unawaited(_save(routine, template, advance: hasNextRoutine));
         },
-        icon: Icon(hasNextRoutine ? Icons.arrow_forward : Icons.save),
+        icon: Icon(hasNextRoutine ? Icons.arrow_forward : Icons.home),
         label: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(hasNextRoutine ? 'Guardar y siguiente' : 'Guardar'),
+          child:
+              Text(hasNextRoutine ? 'Guardar y siguiente' : 'Guardar y volver'),
         ),
       ),
     );
@@ -3692,14 +3744,20 @@ class _JudgingPageState extends State<JudgingPage> {
                       index < section.value.length;
                       index++) ...[
                     if (index > 0) const SizedBox(height: 10),
-                    ScoreStepperField(
-                      criterion: section.value[index],
-                      controller: controllers[section.value[index].id]!,
-                      compact: compact,
-                      onChanged: (value) =>
-                          _setScoreText(section.value[index], value),
-                      onDecrement: () => _adjustScore(section.value[index], -1),
-                      onIncrement: () => _adjustScore(section.value[index], 1),
+                    KeyedSubtree(
+                      key: criterionKeys[section.value[index].id],
+                      child: ScoreStepperField(
+                        criterion: section.value[index],
+                        controller: controllers[section.value[index].id]!,
+                        focusNode: focusNodes[section.value[index].id]!,
+                        compact: compact,
+                        onChanged: (value) =>
+                            _setScoreText(section.value[index], value),
+                        onDecrement: () =>
+                            _adjustScore(section.value[index], -1),
+                        onIncrement: () =>
+                            _adjustScore(section.value[index], 1),
+                      ),
                     ),
                   ],
                 ],
@@ -3949,12 +4007,19 @@ class _JudgingPageState extends State<JudgingPage> {
       controller.dispose();
     }
     controllers.clear();
+    for (final focusNode in focusNodes.values) {
+      focusNode.dispose();
+    }
+    focusNodes.clear();
+    criterionKeys.clear();
     for (final criterion in template.criteria) {
       final saved = store.scoreFor(routine, judge, criterion);
       controllers[criterion.id] = TextEditingController(
           text: saved > 0
               ? _normalizedScoreText(_scoreText(saved), criterion.maxScore)
               : '');
+      focusNodes[criterion.id] = FocusNode();
+      criterionKeys[criterion.id] = GlobalKey();
     }
     feedbackController.text =
         store.feedback[store.feedbackKey(routine.id, judge)] ?? '';
@@ -3990,6 +4055,7 @@ class _JudgingPageState extends State<JudgingPage> {
           errorMessage =
               'Completa todas las notas con números entre 0 y ${_scoreText(criterion.maxScore)}.';
         });
+        await _focusCriterion(criterion.id);
         return;
       }
       values[criterion.id] = value;
@@ -4006,11 +4072,33 @@ class _JudgingPageState extends State<JudgingPage> {
         resetPenaltyOnNextDraft = true;
         widget.store.selectRoutine(routines[currentIndex + 1].id);
       }
+    } else {
+      await widget.store.reportHome();
+      if (mounted) {
+        widget.onBack?.call();
+      }
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Calificaciones guardadas.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(advance
+            ? 'Calificaciones guardadas.'
+            : 'Bloque terminado. Volviendo al inicio.'),
+      ));
     }
+  }
+
+  Future<void> _focusCriterion(int criterionId) async {
+    final criterionContext = criterionKeys[criterionId]?.currentContext;
+    if (criterionContext != null) {
+      await Scrollable.ensureVisible(
+        criterionContext,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+        alignment: 0.25,
+      );
+    }
+    if (!mounted) return;
+    focusNodes[criterionId]?.requestFocus();
   }
 
   void _loadPenalty(double value) {

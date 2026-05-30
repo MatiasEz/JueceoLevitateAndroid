@@ -248,6 +248,18 @@ class SupabaseApi {
     _throwIfFailed(response);
   }
 
+  Future<void> upsertJudgeActivity(Map<String, dynamic> row) async {
+    final response = await http.post(
+      _endpoint('judge_activity?on_conflict=event_id,judge_id,device_id'),
+      headers: {
+        ..._headers,
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: jsonEncode(row),
+    );
+    _throwIfFailed(response);
+  }
+
   Future<void> upsertFavorites(List<Map<String, dynamic>> rows) async {
     if (rows.isEmpty) return;
     final response = await http.post(

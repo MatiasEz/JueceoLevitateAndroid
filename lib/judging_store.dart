@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -21,6 +22,7 @@ const _scoresPendingKey = 'scores.pending.v2';
 const _feedbackPendingKey = 'feedback.pending.v2';
 const _penaltiesPendingKey = 'penalties.pending.v2';
 const _favoriteSelectionsPendingKey = 'favoriteSelections.pending.v2';
+const _deviceIDKey = 'deviceId.v1';
 
 void _loadLog(String message) {
   if (kDebugMode) {
@@ -68,6 +70,7 @@ class JudgingStore extends ChangeNotifier {
   final Set<String> pendingFavoriteKeys = {};
   bool _syncInProgress = false;
   bool _syncRequested = false;
+  String _deviceID = 'android-tablet';
 
   int get pendingCount =>
       pendingScoreKeys.length +
@@ -256,6 +259,8 @@ class JudgingStore extends ChangeNotifier {
   Future<void> initialize() async {
     final watch = Stopwatch()..start();
     _prefs = await SharedPreferences.getInstance();
+    _deviceID = _prefs?.getString(_deviceIDKey) ?? _createDeviceID();
+    await _prefs?.setString(_deviceIDKey, _deviceID);
     selectedJudge = _prefs?.getString('selectedJudge') ?? '';
     selectedRoutineId = _prefs?.getString('selectedRoutineId') ?? '';
     selectedBlockId = _prefs?.getString('selectedBlockId');
@@ -431,6 +436,7 @@ class JudgingStore extends ChangeNotifier {
       _loadLog(
           'selectEvent applied scores=$appliedScores skippedScores=$skippedPendingScores feedback=$appliedFeedback skippedFeedback=$skippedPendingFeedback penalties=$appliedPenalties skippedPenalties=$skippedPendingPenalties localScores=${scores.length} elapsed=${watch.elapsedMilliseconds}ms');
       await syncPending();
+      await reportHome();
       _loadLog(
           'selectEvent finished pending=$pendingCount elapsed=${watch.elapsedMilliseconds}ms');
     } catch (error) {
@@ -526,6 +532,7 @@ class JudgingStore extends ChangeNotifier {
     }
     _prefs?.setString('selectedJudge', judge);
     notifyListeners();
+    unawaited(reportHome());
   }
 
   void addJudge(String name) {
@@ -631,6 +638,46 @@ class JudgingStore extends ChangeNotifier {
     selectedRoutineId = routineId;
     _prefs?.setString('selectedRoutineId', routineId);
     if (notify) notifyListeners();
+  }
+
+  Future<void> reportHome() async {
+    await _reportJudgeActivity(state: 'home');
+  }
+
+  Future<void> reportEnteredSheet(Routine routine) async {
+    await _reportJudgeActivity(state: 'viewing_sheet', routine: routine);
+  }
+
+  Future<void> reportLeftSheet(Routine routine) async {
+    await _reportJudgeActivity(state: 'left_sheet', routine: routine);
+  }
+
+  Future<void> _reportJudgeActivity({
+    required String state,
+    Routine? routine,
+  }) async {
+    final event = selectedEvent;
+    if (!api.isConfigured ||
+        event == null ||
+        event.id.isEmpty ||
+        selectedJudge.isEmpty ||
+        roleFor(selectedJudge) != UserRole.judge) {
+      return;
+    }
+
+    try {
+      await api.upsertJudgeActivity({
+        'event_id': event.id,
+        'judge_id': stableRemoteId(selectedJudge),
+        'device_id': _deviceID,
+        'state': state,
+        'block_id': routine == null ? null : _blockIdForRoutine(routine.id),
+        'routine_id': routine?.id,
+        'platform': 'Android',
+      });
+    } catch (error) {
+      _loadLog('reportJudgeActivity failed state=$state error=$error');
+    }
   }
 
   void beginAdminScoring({required String judge, required Routine routine}) {
@@ -790,7 +837,7 @@ class JudgingStore extends ChangeNotifier {
           'judge_id': stableRemoteId(parts[1]),
           'criterion_id': int.tryParse(parts[2]) ?? 0,
           'value': value,
-          'device_id': 'android-tablet',
+          'device_id': _deviceID,
         });
       }
       await api.upsertScores(eventID, scoreRows);
@@ -818,7 +865,7 @@ class JudgingStore extends ChangeNotifier {
           'routine_id': routineId,
           'judge_id': stableRemoteId(parts[1]),
           'body': body,
-          'device_id': 'android-tablet',
+          'device_id': _deviceID,
         });
       }
       await api.upsertFeedback(eventID, feedbackRows);
@@ -846,7 +893,7 @@ class JudgingStore extends ChangeNotifier {
           'routine_id': routineId,
           'judge_id': stableRemoteId(parts[1]),
           'value': value,
-          'device_id': 'android-tablet',
+          'device_id': _deviceID,
         });
       }
       await api.upsertPenalties(eventID, penaltyRows);
@@ -887,7 +934,7 @@ class JudgingStore extends ChangeNotifier {
             'routine_id': selectedRoutine,
             'judge_id': stableRemoteId(judgeName),
             'category': parsed.category.id,
-            'device_id': 'android-tablet',
+            'device_id': _deviceID,
           });
         }
       }
@@ -1200,6 +1247,10 @@ class JudgingStore extends ChangeNotifier {
       }
     }
     return selectedBlock?.blockId ?? '';
+  }
+
+  String _createDeviceID() {
+    return 'android-${DateTime.now().microsecondsSinceEpoch}';
   }
 
   Map<String, double> _decodeDoubleMap(String raw) {

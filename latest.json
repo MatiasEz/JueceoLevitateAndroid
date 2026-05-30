@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "0.1.9",
+  "versionCode": 11,
+  "versionName": "0.1.10",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "La hoja de jueceo vuelve al inicio al entrar a una rutina o usar Guardar y siguiente."
+  "notes": "Agrega estado de actividad del juez, enfoca campos incompletos y vuelve al inicio al terminar el bloque."
 }
