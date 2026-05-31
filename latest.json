@@ -1,7 +1,7 @@
 {
-  "versionCode": 12,
-  "versionName": "0.1.11",
+  "versionCode": 13,
+  "versionName": "0.1.12",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Mejora la carga completa de datos desde Supabase y limpia la caché local de pendientes."
+  "notes": "Muestra el nivel de la coreografía y mejora la validación de puntajes incompletos."
 }

@@ -3202,6 +3202,7 @@ class ScoreStepperField extends StatelessWidget {
     required this.onDecrement,
     required this.onIncrement,
     required this.compact,
+    required this.hasError,
   });
 
   final Criterion criterion;
@@ -3211,6 +3212,7 @@ class ScoreStepperField extends StatelessWidget {
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
   final bool compact;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -3218,7 +3220,8 @@ class ScoreStepperField extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ScoreCriterionLabel(criterion: criterion, compact: true),
+          _ScoreCriterionLabel(
+              criterion: criterion, compact: true, hasError: hasError),
           const SizedBox(height: 10),
           _ScoreStepperControls(
             controller: controller,
@@ -3228,24 +3231,30 @@ class ScoreStepperField extends StatelessWidget {
             onDecrement: onDecrement,
             onIncrement: onIncrement,
             compact: true,
+            hasError: hasError,
           ),
         ],
       );
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.34),
+        color: hasError
+            ? colorScheme.errorContainer.withValues(alpha: 0.18)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(
+          color: hasError ? colorScheme.error : colorScheme.outlineVariant,
+          width: hasError ? 1.6 : 1,
+        ),
       ),
       child: Row(
         children: [
-          Expanded(child: _ScoreCriterionLabel(criterion: criterion)),
+          Expanded(
+              child: _ScoreCriterionLabel(
+                  criterion: criterion, hasError: hasError)),
           const SizedBox(width: 14),
           _ScoreStepperControls(
             controller: controller,
@@ -3255,6 +3264,7 @@ class ScoreStepperField extends StatelessWidget {
             onDecrement: onDecrement,
             onIncrement: onIncrement,
             compact: false,
+            hasError: hasError,
           ),
         ],
       ),
@@ -3263,10 +3273,12 @@ class ScoreStepperField extends StatelessWidget {
 }
 
 class _ScoreCriterionLabel extends StatelessWidget {
-  const _ScoreCriterionLabel({required this.criterion, this.compact = false});
+  const _ScoreCriterionLabel(
+      {required this.criterion, this.compact = false, this.hasError = false});
 
   final Criterion criterion;
   final bool compact;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -3275,10 +3287,9 @@ class _ScoreCriterionLabel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('${criterion.id}.',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(color: levitPink, fontWeight: FontWeight.w900)),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: hasError ? colorScheme.error : levitPink,
+                fontWeight: FontWeight.w900)),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -3292,6 +3303,12 @@ class _ScoreCriterionLabel extends StatelessWidget {
               Text('0 a ${_scoreText(criterion.maxScore)} puntos',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: colorScheme.outline, fontWeight: FontWeight.w800)),
+              if (hasError) ...[
+                const SizedBox(height: 3),
+                Text('Falta completar',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.error, fontWeight: FontWeight.w900)),
+              ],
             ],
           ),
         ),
@@ -3309,6 +3326,7 @@ class _ScoreStepperControls extends StatelessWidget {
     required this.onDecrement,
     required this.onIncrement,
     required this.compact,
+    required this.hasError,
   });
 
   final TextEditingController controller;
@@ -3318,9 +3336,15 @@ class _ScoreStepperControls extends StatelessWidget {
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
   final bool compact;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final errorBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: colorScheme.error, width: 1.8),
+    );
     final input = TextField(
       controller: controller,
       focusNode: focusNode,
@@ -3334,10 +3358,17 @@ class _ScoreStepperControls extends StatelessWidget {
         fontWeight: FontWeight.w900,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         counterText: '',
         hintText: '0',
-        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        filled: true,
+        fillColor: hasError
+            ? colorScheme.errorContainer.withValues(alpha: 0.22)
+            : null,
+        enabledBorder: hasError ? errorBorder : null,
+        focusedBorder: hasError ? errorBorder : null,
       ),
       onChanged: onChanged,
     );
@@ -3400,6 +3431,7 @@ class _JudgingPageState extends State<JudgingPage> {
   Routine? reportedRoutine;
   String? errorMessage;
   bool resetPenaltyOnNextDraft = false;
+  final Set<int> invalidCriterionIds = <int>{};
 
   @override
   void dispose() {
@@ -3602,11 +3634,7 @@ class _JudgingPageState extends State<JudgingPage> {
                 alignment: WrapAlignment.center,
                 spacing: 6,
                 runSpacing: 4,
-                children: [
-                  Tag(routine.division),
-                  Tag(routine.category),
-                  Tag(routine.genre),
-                ],
+                children: routineTagWidgets(routine),
               ),
             ],
           ),
@@ -3751,6 +3779,8 @@ class _JudgingPageState extends State<JudgingPage> {
                         controller: controllers[section.value[index].id]!,
                         focusNode: focusNodes[section.value[index].id]!,
                         compact: compact,
+                        hasError: invalidCriterionIds
+                            .contains(section.value[index].id),
                         onChanged: (value) =>
                             _setScoreText(section.value[index], value),
                         onDecrement: () =>
@@ -3931,7 +3961,10 @@ class _JudgingPageState extends State<JudgingPage> {
         selection: TextSelection.collapsed(offset: normalized.length),
       );
     }
-    setState(() => errorMessage = null);
+    setState(() {
+      errorMessage = null;
+      invalidCriterionIds.remove(criterion.id);
+    });
   }
 
   void _adjustScore(Criterion criterion, int delta) {
@@ -3944,7 +3977,10 @@ class _JudgingPageState extends State<JudgingPage> {
       text: nextText,
       selection: TextSelection.collapsed(offset: nextText.length),
     );
-    setState(() => errorMessage = null);
+    setState(() {
+      errorMessage = null;
+      invalidCriterionIds.remove(criterion.id);
+    });
   }
 
   Widget _buildFeedbackControl({
@@ -4032,6 +4068,7 @@ class _JudgingPageState extends State<JudgingPage> {
     loadedRoutineId = routine.id;
     loadedJudge = judge;
     errorMessage = null;
+    invalidCriterionIds.clear();
     _scrollToTopOnNextFrame();
   }
 
@@ -4047,24 +4084,33 @@ class _JudgingPageState extends State<JudgingPage> {
   Future<void> _save(Routine routine, JudgingTemplate template,
       {required bool advance}) async {
     final values = <int, double>{};
+    final invalidCriteria = <Criterion>[];
     for (final criterion in template.criteria) {
       final text = controllers[criterion.id]?.text ?? '';
       final value = double.tryParse(text.replaceAll(',', '.'));
       if (value == null || value < 0 || value > criterion.maxScore) {
-        setState(() {
-          errorMessage =
-              'Completa todas las notas con números entre 0 y ${_scoreText(criterion.maxScore)}.';
-        });
-        await _focusCriterion(criterion.id);
-        return;
+        invalidCriteria.add(criterion);
+        continue;
       }
       values[criterion.id] = value;
+    }
+    if (invalidCriteria.isNotEmpty) {
+      setState(() {
+        invalidCriterionIds
+          ..clear()
+          ..addAll(invalidCriteria.map((criterion) => criterion.id));
+        errorMessage = 'Completa todas las notas pendientes.';
+      });
+      FocusManager.instance.primaryFocus?.unfocus();
+      await _scrollToCriterion(invalidCriteria.first.id);
+      return;
     }
     await widget.store.submitScores(
       routine,
       values,
       penalty: _currentPenaltyValue(),
     );
+    invalidCriterionIds.clear();
     if (advance) {
       final routines = sortedRoutines(widget.store.visibleRoutines);
       final currentIndex = routines.indexWhere((item) => item.id == routine.id);
@@ -4087,7 +4133,7 @@ class _JudgingPageState extends State<JudgingPage> {
     }
   }
 
-  Future<void> _focusCriterion(int criterionId) async {
+  Future<void> _scrollToCriterion(int criterionId) async {
     final criterionContext = criterionKeys[criterionId]?.currentContext;
     if (criterionContext != null) {
       await Scrollable.ensureVisible(
@@ -4097,8 +4143,6 @@ class _JudgingPageState extends State<JudgingPage> {
         alignment: 0.25,
       );
     }
-    if (!mounted) return;
-    focusNodes[criterionId]?.requestFocus();
   }
 
   void _loadPenalty(double value) {
@@ -4959,11 +5003,7 @@ class PhoneRoutineCard extends StatelessWidget {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: [
-                  Tag(routine.division),
-                  Tag(routine.category),
-                  Tag(routine.genre),
-                ],
+                children: routineTagWidgets(routine),
               ),
               if (footer != null) ...[
                 const Divider(height: 18),
@@ -5069,11 +5109,7 @@ class PhoneResultCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: [
-              Tag(result.routine.genre),
-              Tag(result.routine.division),
-              Tag(result.routine.category),
-            ],
+            children: routineTagWidgets(result.routine),
           ),
           const SizedBox(height: 10),
           if (result.penalty != 0) ...[
@@ -5351,11 +5387,7 @@ class RoutineListTile extends StatelessWidget {
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                     Wrap(
                       spacing: 6,
-                      children: [
-                        Tag(routine.division),
-                        Tag(routine.category),
-                        Tag(routine.genre),
-                      ],
+                      children: routineTagWidgets(routine),
                     ),
                   ],
                 ),
@@ -5367,6 +5399,16 @@ class RoutineListTile extends StatelessWidget {
       ),
     );
   }
+}
+
+List<Widget> routineTagWidgets(Routine routine) {
+  final level = routine.levelTagText;
+  return [
+    Tag(routine.division),
+    if (level != null) Tag(level),
+    Tag(routine.category),
+    Tag(routine.genre),
+  ];
 }
 
 class Tag extends StatelessWidget {
@@ -5420,11 +5462,7 @@ class SelectedRoutineSummary extends StatelessWidget {
             Text(routineDetailLine(routine),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 10),
-            Wrap(spacing: 6, children: [
-              Tag(routine.division),
-              Tag(routine.category),
-              Tag(routine.genre)
-            ]),
+            Wrap(spacing: 6, children: routineTagWidgets(routine)),
             const Divider(),
             Row(
               children: [

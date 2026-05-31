@@ -227,6 +227,16 @@ class Routine {
   final String time;
   final String duration;
 
+  String? get levelTagText {
+    final trimmed = level.trim();
+    if (trimmed.isEmpty ||
+        trimmed == '-' ||
+        normalizedKey(trimmed) == 'SIN NIVEL') {
+      return null;
+    }
+    return trimmed;
+  }
+
   factory Routine.fromJson(Map<String, dynamic> json) => Routine(
         id: json['routine_id'] as String? ?? json['id'] as String? ?? '',
         blockId:
