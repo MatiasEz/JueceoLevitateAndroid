@@ -157,16 +157,21 @@ class JudgingStore extends ChangeNotifier {
         selectedEvent?.id ?? stableRemoteId(appData?.sourceName ?? '');
     final routinesByID = {for (final routine in routines) routine.id: routine};
     final summaries = <FavoriteSelectionSummary>[];
+    final seenSelections = <String>{};
     for (final entry in favoriteSelections.entries) {
       final parsed = _parseFavoriteKey(entry.key);
-      final routine = routinesByID[entry.value];
+      final routineId = parsed?.routineId ?? entry.value;
+      final routine = routinesByID[routineId];
       if (parsed == null ||
           parsed.eventId != currentEventKey ||
           routine == null) {
         continue;
       }
+      final selectionId =
+          '${parsed.eventId}::${parsed.blockId}::${parsed.judgeKey}::${parsed.category.id}::${routine.id}';
+      if (!seenSelections.add(selectionId)) continue;
       summaries.add(FavoriteSelectionSummary(
-        id: entry.key,
+        id: selectionId,
         category: parsed.category,
         judge: _judgeNameForKey(parsed.judgeKey) ?? parsed.judgeKey,
         blockName: _blockNameFor(parsed.blockId),
@@ -427,8 +432,16 @@ class JudgingStore extends ChangeNotifier {
           judge: judge,
           eventId: remoteFavorite.eventId,
           blockId: remoteFavorite.blockId,
+          routineId: remoteFavorite.routineId,
         );
-        if (!pendingFavoriteKeys.contains(key)) {
+        final legacyKey = favoriteKey(
+          remoteFavorite.category,
+          judge: judge,
+          eventId: remoteFavorite.eventId,
+          blockId: remoteFavorite.blockId,
+        );
+        if (!pendingFavoriteKeys.contains(key) &&
+            !pendingFavoriteKeys.contains(legacyKey)) {
           favoriteSelections[key] = remoteFavorite.routineId;
         }
       }
@@ -481,12 +494,16 @@ class JudgingStore extends ChangeNotifier {
     String? judge,
     String? eventId,
     String? blockId,
+    String? routineId,
   }) {
     final eventKey = eventId ??
         selectedEvent?.id ??
         stableRemoteId(appData?.sourceName ?? '');
     final blockKey = blockId ?? selectedBlock?.blockId ?? 'sin-bloque';
-    return '$eventKey::$blockKey::${normalizedKey(judge ?? scoringJudge)}::${category.id}';
+    final baseKey =
+        '$eventKey::$blockKey::${normalizedKey(judge ?? scoringJudge)}::${category.id}';
+    final cleanRoutineId = routineId?.trim() ?? '';
+    return cleanRoutineId.isEmpty ? baseKey : '$baseKey::$cleanRoutineId';
   }
 
   double scoreFor(Routine routine, String judge, Criterion criterion) {
@@ -498,8 +515,10 @@ class JudgingStore extends ChangeNotifier {
   }
 
   bool isFavorite(Routine routine, FavoriteCategory category, {String? judge}) {
-    return favoriteSelections[favoriteKey(category, judge: judge)] ==
-        routine.id;
+    final key = favoriteKey(category, judge: judge, routineId: routine.id);
+    final legacyKey = favoriteKey(category, judge: judge);
+    return favoriteSelections.containsKey(key) ||
+        favoriteSelections[legacyKey] == routine.id;
   }
 
   bool hasFavorite(Routine routine, {String? judge}) {
@@ -511,13 +530,19 @@ class JudgingStore extends ChangeNotifier {
 
   Future<void> toggleFavorite(FavoriteCategory category, Routine routine,
       {String? judge}) async {
-    final key = favoriteKey(category, judge: judge);
-    if (favoriteSelections[key] == routine.id) {
+    final key = favoriteKey(category, judge: judge, routineId: routine.id);
+    final legacyKey = favoriteKey(category, judge: judge);
+    if (favoriteSelections.containsKey(key)) {
       favoriteSelections.remove(key);
+      pendingFavoriteKeys.add(key);
+    } else if (favoriteSelections[legacyKey] == routine.id) {
+      favoriteSelections.remove(legacyKey);
+      pendingFavoriteKeys.remove(legacyKey);
+      pendingFavoriteKeys.add(key);
     } else {
       favoriteSelections[key] = routine.id;
+      pendingFavoriteKeys.add(key);
     }
-    pendingFavoriteKeys.add(key);
     await _persistAll();
     syncState = SyncState.pending;
     notifyListeners();
@@ -918,12 +943,15 @@ class JudgingStore extends ChangeNotifier {
           pendingFavoriteKeys.remove(key);
           continue;
         }
-        final selectedRoutine = favoriteSelections[key];
+        final isSelected = favoriteSelections.containsKey(key);
+        final selectedRoutine =
+            isSelected ? (parsed.routineId ?? favoriteSelections[key]) : null;
         sentFavoriteValues[key] = selectedRoutine;
-        if (selectedRoutine == null) {
+        if (!isSelected) {
           favoriteDeleteRows.add({
             'event_id': parsed.eventId,
             'block_id': parsed.blockId,
+            if (parsed.routineId != null) 'routine_id': parsed.routineId,
             'judge_id': stableRemoteId(judgeName),
             'category': parsed.category.id,
           });
@@ -1202,17 +1230,19 @@ class JudgingStore extends ChangeNotifier {
     String eventId,
     String blockId,
     String judgeKey,
-    FavoriteCategory category
+    FavoriteCategory category,
+    String? routineId
   })? _parseFavoriteKey(String key) {
     final parts = key.split('::');
-    if (parts.length != 4) return null;
+    if (parts.length != 4 && parts.length != 5) return null;
     final category = FavoriteCategory.fromId(parts[3]);
     if (category == null) return null;
     return (
       eventId: parts[0],
       blockId: parts[1],
       judgeKey: parts[2],
-      category: category
+      category: category,
+      routineId: parts.length == 5 ? parts[4] : null
     );
   }
 

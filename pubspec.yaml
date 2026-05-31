@@ -1,7 +1,7 @@
 name: jueceo_coreografias_tablet
 description: Android tablet companion for Levitate.
 publish_to: "none"
-version: 0.1.12+13
+version: 0.1.13+14
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

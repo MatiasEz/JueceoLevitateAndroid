@@ -1,7 +1,7 @@
 {
-  "versionCode": 13,
-  "versionName": "0.1.12",
+  "versionCode": 14,
+  "versionName": "0.1.13",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Muestra el nivel de la coreografía y mejora la validación de puntajes incompletos."
+  "notes": "Permite seleccionar múltiples favoritos por juez y categoría sin reemplazar selecciones anteriores."
 }

@@ -242,7 +242,7 @@ class SupabaseApi {
     if (rows.isEmpty) return;
     final response = await http.post(
       _endpoint(
-          'routine_favorites?on_conflict=event_id,block_id,judge_id,category'),
+          'routine_favorite_votes?on_conflict=event_id,block_id,routine_id,judge_id,category'),
       headers: {
         ..._headers,
         'Prefer': 'resolution=merge-duplicates,return=minimal',
@@ -258,16 +258,25 @@ class SupabaseApi {
       final blockID = _queryValue(row['block_id'] as String? ?? '');
       final judgeID = _queryValue(row['judge_id'] as String? ?? '');
       final category = _queryValue(row['category'] as String? ?? '');
-      final response = await http.delete(
-        _endpoint(
-            'routine_favorites?event_id=eq.$eventID&block_id=eq.$blockID&judge_id=eq.$judgeID&category=eq.$category'),
-        headers: {
-          ..._headers,
-          'Prefer': 'return=minimal',
-        },
-      );
-      _throwIfFailed(response);
+      final routineID = _queryValue(row['routine_id'] as String? ?? '');
+      final routineFilter =
+          routineID.isEmpty ? '' : '&routine_id=eq.$routineID';
+      await _deleteFavoriteRow(
+          'routine_favorite_votes?event_id=eq.$eventID&block_id=eq.$blockID&judge_id=eq.$judgeID&category=eq.$category$routineFilter');
+      await _deleteFavoriteRow(
+          'routine_favorites?event_id=eq.$eventID&block_id=eq.$blockID&judge_id=eq.$judgeID&category=eq.$category$routineFilter');
     }
+  }
+
+  Future<void> _deleteFavoriteRow(String path) async {
+    final response = await http.delete(
+      _endpoint(path),
+      headers: {
+        ..._headers,
+        'Prefer': 'return=minimal',
+      },
+    );
+    _throwIfFailed(response);
   }
 
   Future<void> uploadExcelImport(Map<String, dynamic> row) async {
@@ -283,12 +292,32 @@ class SupabaseApi {
   }
 
   Future<List<dynamic>> _fetchFavorites(String eventID) async {
-    try {
-      return await _getAllRows(
-          'routine_favorites?select=*&event_id=eq.$eventID&order=block_id.asc,judge_id.asc,category.asc');
-    } catch (_) {
-      return const [];
+    final rows = <dynamic>[];
+    final seen = <String>{};
+
+    for (final table in ['routine_favorite_votes', 'routine_favorites']) {
+      try {
+        final tableRows = await _getAllRows(
+            '$table?select=*&event_id=eq.$eventID&order=block_id.asc,judge_id.asc,category.asc,routine_id.asc');
+        for (final row in tableRows) {
+          final item = row as Map<String, dynamic>;
+          final key = [
+            item['event_id'],
+            item['block_id'],
+            item['routine_id'],
+            item['judge_id'],
+            item['category'],
+          ].join('::');
+          if (seen.add(key)) {
+            rows.add(item);
+          }
+        }
+      } catch (_) {
+        continue;
+      }
     }
+
+    return rows;
   }
 
   Future<List<dynamic>> _getAllRows(String path,
