@@ -310,6 +310,249 @@ class Criterion {
       );
 }
 
+class ObligatoryRequirement {
+  const ObligatoryRequirement({required this.id, required this.title});
+
+  final String id;
+  final String title;
+}
+
+class ObligatoryChecklist {
+  const ObligatoryChecklist({
+    required this.apparatus,
+    required this.level,
+    required this.items,
+    this.isAutoCompleted = false,
+  });
+
+  final String apparatus;
+  final String level;
+  final List<ObligatoryRequirement> items;
+  final bool isAutoCompleted;
+
+  String get id => '${normalizedKey(apparatus)}::${normalizedKey(level)}';
+
+  String get title => 'Obligatorios $apparatus';
+
+  double score({required int checkedCount, required double maxScore}) {
+    if (maxScore <= 0) return 0;
+    final roundedMax = maxScore.roundToDouble();
+    if (isAutoCompleted) return roundedMax;
+    if (items.isEmpty) return 0;
+    final clampedCount = checkedCount.clamp(0, items.length).toInt();
+    if (clampedCount <= 0) return 0;
+    if (clampedCount >= items.length) return roundedMax;
+
+    final tier = clampedCount * 2 >= items.length ? 2.0 : 1.0;
+    return tier < roundedMax ? tier : roundedMax;
+  }
+
+  Set<String> initialCheckedIds({
+    required double savedScore,
+    required double maxScore,
+  }) {
+    if (isAutoCompleted) return items.map((item) => item.id).toSet();
+    if (items.isEmpty || maxScore <= 0 || savedScore <= 0) {
+      return <String>{};
+    }
+    final roundedScore = savedScore.round();
+    final maxTier = maxScore.round();
+    final halfThreshold =
+        ((items.length + 1) / 2).floor().clamp(1, items.length).toInt();
+    final count = roundedScore >= maxTier
+        ? items.length
+        : roundedScore >= 2
+            ? halfThreshold
+            : (halfThreshold - 1).clamp(1, items.length).toInt();
+    return items.take(count).map((item) => item.id).toSet();
+  }
+
+  static bool isObligatoryCriterion(Criterion criterion) {
+    return normalizedKey(criterion.label).contains('OBLIGATORIO');
+  }
+
+  static ObligatoryChecklist? forRoutine(
+    Routine routine, {
+    Criterion? criterion,
+  }) {
+    if (criterion != null && !isObligatoryCriterion(criterion)) return null;
+    final apparatus = _apparatusForGenre(routine.genre);
+    if (apparatus == null) return null;
+
+    final divisionKey = normalizedKey(routine.division);
+    if (_autoCompletedDivisions.contains(divisionKey)) {
+      return _autoCompletedChecklist(
+          apparatus: apparatus, divisionKey: divisionKey);
+    }
+    if (!_eligibleDivisions.contains(divisionKey)) return null;
+
+    final levelKey = normalizedKey(routine.level);
+    switch (apparatus) {
+      case 'TELA':
+        return _telaChecklist(levelKey);
+      case 'ARO':
+        return _aroChecklist(levelKey);
+      default:
+        return null;
+    }
+  }
+
+  static bool isAerialApparatusGenre(String genre) {
+    return _apparatusForGenre(genre) != null;
+  }
+
+  static const _eligibleDivisions = <String>{
+    'PETITE',
+    'JUNIOR',
+    'TEEN',
+    'SENIOR',
+  };
+
+  static const _autoCompletedDivisions = <String>{
+    'BABY',
+    'LEGACY',
+  };
+
+  static ObligatoryChecklist _autoCompletedChecklist({
+    required String apparatus,
+    required String divisionKey,
+  }) {
+    final division = divisionKey == 'LEGACY' ? 'Legacy' : 'Baby';
+    return ObligatoryChecklist(
+      apparatus: apparatus,
+      level: division,
+      items: const [],
+      isAutoCompleted: true,
+    );
+  }
+
+  static String? _apparatusForGenre(String genre) {
+    final genreKey = normalizedKey(genre);
+    if (genreKey.contains('TELA')) return 'TELA';
+    if (genreKey.contains('ARO')) return 'ARO';
+    return null;
+  }
+
+  static ObligatoryChecklist? _telaChecklist(String levelKey) {
+    switch (levelKey) {
+      case 'NUDO':
+        return ObligatoryChecklist(apparatus: 'TELA', level: 'Nudo', items: [
+          _item('tela-nudo-espalda', 'Figura de flex de espalda'),
+          _item('tela-nudo-pierna', 'Figura de flex de pierna'),
+          _item('tela-nudo-caida-simple', '1 caída simple'),
+        ]);
+      case 'PRINCIPIANTE':
+        return ObligatoryChecklist(
+            apparatus: 'TELA',
+            level: 'Principiante',
+            items: [
+              _item(
+                  'tela-principiante-subida', 'Subida básica sin inversiones'),
+              _item('tela-principiante-zapato',
+                  'Figuras en zapato o doble zapato'),
+              _item('tela-principiante-inversion-lumbar',
+                  '1 caída por inversión central con amarre de lumbar'),
+              _item('tela-principiante-caida-seguro',
+                  '1 caída sencilla/simple con seguro'),
+            ]);
+      case 'INTERMEDIO':
+        return ObligatoryChecklist(
+            apparatus: 'TELA',
+            level: 'Intermedio',
+            items: [
+              _item('tela-intermedio-subida',
+                  'Subida libre con o sin inversiones'),
+              _item('tela-intermedio-flexibilidad',
+                  'Al menos 1 figura de flexibilidad'),
+              _item('tela-intermedio-fuerza', 'Al menos 1 figura de fuerza'),
+              _item('tela-intermedio-tijera', 'Uso de tijera'),
+              _item('tela-intermedio-caidas',
+                  '2 caídas simples o 1 caída compuesta'),
+            ]);
+      case 'AVANZADO':
+        return ObligatoryChecklist(
+            apparatus: 'TELA',
+            level: 'Avanzado',
+            items: [
+              _item('tela-avanzado-subida',
+                  'Subida de fuerza o que implique inversiones'),
+              _item('tela-avanzado-flexibilidad', '1 figura de flexibilidad'),
+              _item('tela-avanzado-fuerza',
+                  '1 figura de fuerza o suspensión únicamente en manos'),
+              _item('tela-avanzado-inversion',
+                  'Al menos 1 inversión con piernas y brazos estirados'),
+              _item('tela-avanzado-caida', '1 caída compuesta'),
+            ]);
+      case 'ELITE':
+        return ObligatoryChecklist(apparatus: 'TELA', level: 'Elite', items: [
+          _item('tela-elite-subida',
+              'Subida de fuerza o que implique inversiones'),
+          _item('tela-elite-flexibilidad', '1 figura de flexibilidad'),
+          _item('tela-elite-fuerza',
+              '1 figura de fuerza o suspensión únicamente en manos'),
+          _item('tela-elite-inversion',
+              'Al menos 1 inversión con piernas y brazos estirados'),
+          _item('tela-elite-caida', '1 caída compuesta o caída sin seguro'),
+          _item('tela-elite-equilibrio',
+              '1 equilibrio: estómago, lumbares, split o squat'),
+          _item('tela-elite-dinamico',
+              'Dinámico compuesto: unión de 2 dinámicos o más'),
+        ]);
+      default:
+        return null;
+    }
+  }
+
+  static ObligatoryChecklist? _aroChecklist(String levelKey) {
+    switch (levelKey) {
+      case 'PRINCIPIANTE':
+        return ObligatoryChecklist(
+            apparatus: 'ARO',
+            level: 'Principiante',
+            items: [
+              _item('aro-principiante-inversiones',
+                  'Inversiones con piernas y codos flexionados o desde balanceos/puntos de apoyo'),
+              _item(
+                  'aro-principiante-figuras', 'Figuras y transiciones simples'),
+              _item('aro-principiante-equilibrio',
+                  '1 equilibrio de lumbares o abdomen'),
+            ]);
+      case 'INTERMEDIO':
+        return ObligatoryChecklist(
+            apparatus: 'ARO',
+            level: 'Intermedio',
+            items: [
+              _item('aro-intermedio-subida',
+                  'Subida libre con brazos o piernas estiradas'),
+              _item('aro-intermedio-flexibilidad',
+                  'Al menos 1 figura de flexibilidad'),
+              _item('aro-intermedio-fuerza', 'Al menos 1 figura de fuerza'),
+              _item('aro-intermedio-caidas',
+                  '2 caídas simples o 1 caída compuesta'),
+            ]);
+      case 'AVANZADO':
+        return ObligatoryChecklist(apparatus: 'ARO', level: 'Avanzado', items: [
+          _item('aro-avanzado-subida',
+              'Subida de fuerza o inversiones a brazos y piernas estiradas o de estómago'),
+          _item('aro-avanzado-flexibilidad', '2 figuras de flexibilidad'),
+          _item('aro-avanzado-fuerza', '2 figuras de fuerza'),
+          _item('aro-avanzado-equilibrios', '2 equilibrios'),
+          _item(
+              'aro-avanzado-caidas', '1 o más caídas compuestas y una simple'),
+          _item('aro-avanzado-balanceos',
+              'Al menos 1 secuencia con balanceos en manos o corvas'),
+          _item('aro-avanzado-dinamico', 'Mínimo 1 dinámico'),
+        ]);
+      default:
+        return null;
+    }
+  }
+
+  static ObligatoryRequirement _item(String id, String title) {
+    return ObligatoryRequirement(id: id, title: title);
+  }
+}
+
 class RemoteScore {
   RemoteScore({
     required this.routineId,

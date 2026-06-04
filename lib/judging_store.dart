@@ -463,18 +463,26 @@ class JudgingStore extends ChangeNotifier {
 
   JudgingTemplate templateFor(Routine routine) {
     final templates = appData?.templates ?? const <JudgingTemplate>[];
-    return templates.firstWhere(
-      (template) =>
-          normalizedKey(template.genre) == normalizedKey(routine.genre),
-      orElse: () => templates.isEmpty
-          ? JudgingTemplate(
-              templateId: 'general',
-              genre: 'General',
-              title: 'Hoja de jueceo',
-              maxScore: 0,
-              criteria: const [])
-          : templates.first,
-    );
+    for (final template in templates) {
+      if (normalizedKey(template.genre) == normalizedKey(routine.genre)) {
+        return template;
+      }
+    }
+    if (ObligatoryChecklist.isAerialApparatusGenre(routine.genre)) {
+      for (final template in templates) {
+        if (normalizedKey(template.genre) == 'DANZA AEREA') {
+          return template;
+        }
+      }
+    }
+    return templates.isEmpty
+        ? JudgingTemplate(
+            templateId: 'general',
+            genre: 'General',
+            title: 'Hoja de jueceo',
+            maxScore: 0,
+            criteria: const [])
+        : templates.first;
   }
 
   String scoreKey(String routineId, String judge, int criterionId) {

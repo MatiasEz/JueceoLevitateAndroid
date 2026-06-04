@@ -1,7 +1,7 @@
 {
-  "versionCode": 14,
-  "versionName": "0.1.13",
+  "versionCode": 15,
+  "versionName": "0.1.14",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Permite seleccionar múltiples favoritos por juez y categoría sin reemplazar selecciones anteriores."
+  "notes": "Agrega checklist de obligatorios TELA/ARO en la hoja de juez Levitate y usa la planilla de Danza Aérea para aparatos aéreos."
 }

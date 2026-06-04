@@ -3203,6 +3203,8 @@ class ScoreStepperField extends StatelessWidget {
     required this.onIncrement,
     required this.compact,
     required this.hasError,
+    this.rangeText,
+    this.errorText,
   });
 
   final Criterion criterion;
@@ -3213,6 +3215,8 @@ class ScoreStepperField extends StatelessWidget {
   final VoidCallback onIncrement;
   final bool compact;
   final bool hasError;
+  final String? rangeText;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -3221,7 +3225,12 @@ class ScoreStepperField extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ScoreCriterionLabel(
-              criterion: criterion, compact: true, hasError: hasError),
+            criterion: criterion,
+            compact: true,
+            hasError: hasError,
+            rangeText: rangeText,
+            errorText: errorText,
+          ),
           const SizedBox(height: 10),
           _ScoreStepperControls(
             controller: controller,
@@ -3253,8 +3262,13 @@ class ScoreStepperField extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-              child: _ScoreCriterionLabel(
-                  criterion: criterion, hasError: hasError)),
+            child: _ScoreCriterionLabel(
+              criterion: criterion,
+              hasError: hasError,
+              rangeText: rangeText,
+              errorText: errorText,
+            ),
+          ),
           const SizedBox(width: 14),
           _ScoreStepperControls(
             controller: controller,
@@ -3273,12 +3287,21 @@ class ScoreStepperField extends StatelessWidget {
 }
 
 class _ScoreCriterionLabel extends StatelessWidget {
-  const _ScoreCriterionLabel(
-      {required this.criterion, this.compact = false, this.hasError = false});
+  const _ScoreCriterionLabel({
+    required this.criterion,
+    this.compact = false,
+    this.hasError = false,
+    this.labelText,
+    this.rangeText,
+    this.errorText,
+  });
 
   final Criterion criterion;
   final bool compact;
   final bool hasError;
+  final String? labelText;
+  final String? rangeText;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -3295,17 +3318,17 @@ class _ScoreCriterionLabel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(criterion.label,
+              Text(labelText ?? criterion.label,
                   maxLines: compact ? 3 : 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 3),
-              Text('0 a ${_scoreText(criterion.maxScore)} puntos',
+              Text(rangeText ?? '1 a ${_scoreText(criterion.maxScore)} puntos',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: colorScheme.outline, fontWeight: FontWeight.w800)),
               if (hasError) ...[
                 const SizedBox(height: 3),
-                Text('Falta completar',
+                Text(errorText ?? 'Falta completar',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colorScheme.error, fontWeight: FontWeight.w900)),
               ],
@@ -3392,7 +3415,7 @@ class _RoundScoreButton extends StatelessWidget {
   const _RoundScoreButton({required this.icon, required this.onPressed});
 
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -3404,6 +3427,166 @@ class _RoundScoreButton extends StatelessWidget {
         fixedSize: const Size.square(42),
         backgroundColor: colorScheme.surfaceContainerHighest,
         foregroundColor: colorScheme.onSurface,
+      ),
+    );
+  }
+}
+
+class ObligatoryChecklistField extends StatelessWidget {
+  const ObligatoryChecklistField({
+    super.key,
+    required this.criterion,
+    required this.checklist,
+    required this.checkedIds,
+    required this.score,
+    required this.compact,
+    required this.hasError,
+    required this.onToggle,
+  });
+
+  final Criterion criterion;
+  final ObligatoryChecklist checklist;
+  final Set<String> checkedIds;
+  final double score;
+  final bool compact;
+  final bool hasError;
+  final ValueChanged<ObligatoryRequirement> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final checkedCount =
+        checklist.items.where((item) => checkedIds.contains(item.id)).length;
+    final detailText = checklist.isAutoCompleted
+        ? '${checklist.level} · ${_scoreText(criterion.maxScore)} puntos'
+        : '${checklist.level} · $checkedCount de ${checklist.items.length} cumplidos';
+    return Container(
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      decoration: BoxDecoration(
+        color: hasError
+            ? colorScheme.errorContainer.withValues(alpha: 0.18)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasError ? colorScheme.error : colorScheme.outlineVariant,
+          width: hasError ? 1.6 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _ScoreCriterionLabel(
+                  criterion: criterion,
+                  compact: compact,
+                  hasError: hasError,
+                  labelText: checklist.title,
+                  rangeText: detailText,
+                  errorText: 'Marca al menos un obligatorio',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _scoreText(score),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (checklist.isAutoCompleted)
+            _ObligatoryItemRow(
+              title: '${_scoreText(criterion.maxScore)} puntos',
+              checked: true,
+              locked: true,
+              onTap: null,
+            )
+          else
+            Column(
+              children: [
+                for (var index = 0;
+                    index < checklist.items.length;
+                    index++) ...[
+                  if (index > 0) const SizedBox(height: 8),
+                  _ObligatoryItemRow(
+                    title: checklist.items[index].title,
+                    checked: checkedIds.contains(checklist.items[index].id),
+                    locked: false,
+                    onTap: () => onToggle(checklist.items[index]),
+                  ),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ObligatoryItemRow extends StatelessWidget {
+  const _ObligatoryItemRow({
+    required this.title,
+    required this.checked,
+    required this.locked,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool checked;
+  final bool locked;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = checked ? levitPink : colorScheme.onSurfaceVariant;
+    final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          locked
+              ? Icons.lock
+              : checked
+                  ? Icons.check_box
+                  : Icons.check_box_outline_blank,
+          color: foreground,
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: checked
+              ? levitPink.withValues(alpha: 0.10)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: checked
+                ? levitPink.withValues(alpha: 0.38)
+                : colorScheme.outlineVariant,
+          ),
+        ),
+        child: content,
       ),
     );
   }
@@ -3432,6 +3615,7 @@ class _JudgingPageState extends State<JudgingPage> {
   String? errorMessage;
   bool resetPenaltyOnNextDraft = false;
   final Set<int> invalidCriterionIds = <int>{};
+  final Map<int, Set<String>> obligatorySelections = {};
 
   @override
   void dispose() {
@@ -3559,7 +3743,7 @@ class _JudgingPageState extends State<JudgingPage> {
             Expanded(
               child: Column(
                 children: [
-                  ..._buildCriteriaSections(template, compact: false),
+                  ..._buildCriteriaSections(routine, template, compact: false),
                 ],
               ),
             ),
@@ -3673,7 +3857,7 @@ class _JudgingPageState extends State<JudgingPage> {
     required double maxTotal,
     required Routine? nextRoutine,
   }) {
-    final hasIncompleteScores = _hasIncompleteScores(template);
+    final hasIncompleteScores = _hasIncompleteScores(routine, template);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -3741,8 +3925,17 @@ class _JudgingPageState extends State<JudgingPage> {
     );
   }
 
-  bool _hasIncompleteScores(JudgingTemplate template) {
+  bool _hasIncompleteScores(Routine routine, JudgingTemplate template) {
     for (final criterion in template.criteria) {
+      final checklist = ObligatoryChecklist.forRoutine(
+        routine,
+        criterion: criterion,
+      );
+      if (checklist != null &&
+          !checklist.isAutoCompleted &&
+          (obligatorySelections[criterion.id] ?? const <String>{}).isEmpty) {
+        return true;
+      }
       if ((controllers[criterion.id]?.text.trim() ?? '').isEmpty) {
         return true;
       }
@@ -3750,7 +3943,7 @@ class _JudgingPageState extends State<JudgingPage> {
     return false;
   }
 
-  List<Widget> _buildCriteriaSections(JudgingTemplate template,
+  List<Widget> _buildCriteriaSections(Routine routine, JudgingTemplate template,
       {required bool compact}) {
     final sections = groupedCriteriaFor(template);
     return [
@@ -3774,19 +3967,10 @@ class _JudgingPageState extends State<JudgingPage> {
                     if (index > 0) const SizedBox(height: 10),
                     KeyedSubtree(
                       key: criterionKeys[section.value[index].id],
-                      child: ScoreStepperField(
+                      child: _buildCriterionField(
+                        routine: routine,
                         criterion: section.value[index],
-                        controller: controllers[section.value[index].id]!,
-                        focusNode: focusNodes[section.value[index].id]!,
                         compact: compact,
-                        hasError: invalidCriterionIds
-                            .contains(section.value[index].id),
-                        onChanged: (value) =>
-                            _setScoreText(section.value[index], value),
-                        onDecrement: () =>
-                            _adjustScore(section.value[index], -1),
-                        onIncrement: () =>
-                            _adjustScore(section.value[index], 1),
                       ),
                     ),
                   ],
@@ -3814,7 +3998,7 @@ class _JudgingPageState extends State<JudgingPage> {
     final currentPosition = currentIndex >= 0 ? currentIndex + 1 : 1;
     final progress =
         maxTotal <= 0 ? 0.0 : (total / maxTotal).clamp(0.0, 1.0).toDouble();
-    final hasIncompleteScores = _hasIncompleteScores(template);
+    final hasIncompleteScores = _hasIncompleteScores(routine, template);
     return ListView(
       controller: sheetScrollController,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -3946,8 +4130,46 @@ class _JudgingPageState extends State<JudgingPage> {
           subtitle: 'Completa cada criterio',
         ),
         const SizedBox(height: 10),
-        ..._buildCriteriaSections(template, compact: true),
+        ..._buildCriteriaSections(routine, template, compact: true),
       ],
+    );
+  }
+
+  Widget _buildCriterionField({
+    required Routine routine,
+    required Criterion criterion,
+    required bool compact,
+  }) {
+    final checklist = ObligatoryChecklist.forRoutine(
+      routine,
+      criterion: criterion,
+    );
+    final hasError = invalidCriterionIds.contains(criterion.id);
+    if (checklist != null) {
+      return ObligatoryChecklistField(
+        criterion: criterion,
+        checklist: checklist,
+        checkedIds: obligatorySelections[criterion.id] ?? const <String>{},
+        score: _scoreValueFor(criterion),
+        compact: compact,
+        hasError: hasError,
+        onToggle: (requirement) => _toggleObligatoryRequirement(
+          criterion: criterion,
+          checklist: checklist,
+          requirement: requirement,
+        ),
+      );
+    }
+
+    return ScoreStepperField(
+      criterion: criterion,
+      controller: controllers[criterion.id]!,
+      focusNode: focusNodes[criterion.id]!,
+      compact: compact,
+      hasError: hasError,
+      onChanged: (value) => _setScoreText(criterion, value),
+      onDecrement: () => _adjustScore(criterion, -1),
+      onIncrement: () => _adjustScore(criterion, 1),
     );
   }
 
@@ -3970,8 +4192,12 @@ class _JudgingPageState extends State<JudgingPage> {
   void _adjustScore(Criterion criterion, int delta) {
     final controller = controllers[criterion.id];
     if (controller == null) return;
-    final current = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
-    final next = (current + delta).clamp(0, criterion.maxScore).toDouble();
+    final minimum = _minimumScoreFor(criterion);
+    final fallback = delta > 0 ? 0.0 : minimum;
+    final current =
+        double.tryParse(controller.text.replaceAll(',', '.')) ?? fallback;
+    final next =
+        (current + delta).clamp(minimum, criterion.maxScore).toDouble();
     final nextText = _scoreText(next);
     controller.value = TextEditingValue(
       text: nextText,
@@ -4001,6 +4227,41 @@ class _JudgingPageState extends State<JudgingPage> {
         widget.store.setFeedback(routine, value, judge: scoringJudge);
       },
     );
+  }
+
+  void _toggleObligatoryRequirement({
+    required Criterion criterion,
+    required ObligatoryChecklist checklist,
+    required ObligatoryRequirement requirement,
+  }) {
+    if (checklist.isAutoCompleted) return;
+    final checked = Set<String>.from(
+      obligatorySelections[criterion.id] ?? const <String>{},
+    );
+    if (checked.contains(requirement.id)) {
+      checked.remove(requirement.id);
+    } else {
+      checked.add(requirement.id);
+    }
+    final score = checklist.score(
+      checkedCount: checked.length,
+      maxScore: criterion.maxScore,
+    );
+    final controller = controllers[criterion.id];
+    final scoreText = score > 0
+        ? _normalizedScoreText(_scoreText(score), criterion.maxScore)
+        : '';
+    if (controller != null) {
+      controller.value = TextEditingValue(
+        text: scoreText,
+        selection: TextSelection.collapsed(offset: scoreText.length),
+      );
+    }
+    setState(() {
+      obligatorySelections[criterion.id] = checked;
+      errorMessage = null;
+      invalidCriterionIds.remove(criterion.id);
+    });
   }
 
   Widget _buildPenaltyControl(BuildContext context) {
@@ -4048,11 +4309,33 @@ class _JudgingPageState extends State<JudgingPage> {
     }
     focusNodes.clear();
     criterionKeys.clear();
+    obligatorySelections.clear();
     for (final criterion in template.criteria) {
       final saved = store.scoreFor(routine, judge, criterion);
+      final checklist = ObligatoryChecklist.forRoutine(
+        routine,
+        criterion: criterion,
+      );
+      final checkedIds = checklist?.initialCheckedIds(
+            savedScore: saved,
+            maxScore: criterion.maxScore,
+          ) ??
+          const <String>{};
+      if (checklist != null) {
+        obligatorySelections[criterion.id] = checkedIds;
+      }
+      final displayScore = checklist == null
+          ? saved
+          : checklist.score(
+              checkedCount: checkedIds.length,
+              maxScore: criterion.maxScore,
+            );
       controllers[criterion.id] = TextEditingController(
-          text: saved > 0
-              ? _normalizedScoreText(_scoreText(saved), criterion.maxScore)
+          text: displayScore > 0
+              ? _normalizedScoreText(
+                  _scoreText(displayScore),
+                  criterion.maxScore,
+                )
               : '');
       focusNodes[criterion.id] = FocusNode();
       criterionKeys[criterion.id] = GlobalKey();
@@ -4085,10 +4368,24 @@ class _JudgingPageState extends State<JudgingPage> {
       {required bool advance}) async {
     final values = <int, double>{};
     final invalidCriteria = <Criterion>[];
+    var hasMissingChecklist = false;
     for (final criterion in template.criteria) {
+      final checklist = ObligatoryChecklist.forRoutine(
+        routine,
+        criterion: criterion,
+      );
+      if (checklist != null &&
+          !checklist.isAutoCompleted &&
+          (obligatorySelections[criterion.id] ?? const <String>{}).isEmpty) {
+        invalidCriteria.add(criterion);
+        hasMissingChecklist = true;
+        continue;
+      }
       final text = controllers[criterion.id]?.text ?? '';
       final value = double.tryParse(text.replaceAll(',', '.'));
-      if (value == null || value < 0 || value > criterion.maxScore) {
+      if (value == null ||
+          value < _minimumScoreFor(criterion) ||
+          value > criterion.maxScore) {
         invalidCriteria.add(criterion);
         continue;
       }
@@ -4099,7 +4396,13 @@ class _JudgingPageState extends State<JudgingPage> {
         invalidCriterionIds
           ..clear()
           ..addAll(invalidCriteria.map((criterion) => criterion.id));
-        errorMessage = 'Completa todas las notas pendientes.';
+        if (hasMissingChecklist) {
+          errorMessage = 'Marca al menos un obligatorio.';
+        } else {
+          final first = invalidCriteria.first;
+          errorMessage =
+              'Completa todas las notas entre ${_scoreText(_minimumScoreFor(first))} y ${_scoreText(first.maxScore)}.';
+        }
       });
       FocusManager.instance.primaryFocus?.unfocus();
       await _scrollToCriterion(invalidCriteria.first.id);
@@ -4131,6 +4434,17 @@ class _JudgingPageState extends State<JudgingPage> {
             : 'Bloque terminado. Volviendo al inicio.'),
       ));
     }
+  }
+
+  double _scoreValueFor(Criterion criterion) {
+    return double.tryParse(
+          controllers[criterion.id]?.text.replaceAll(',', '.') ?? '',
+        ) ??
+        0;
+  }
+
+  double _minimumScoreFor(Criterion criterion) {
+    return 1;
   }
 
   Future<void> _scrollToCriterion(int criterionId) async {
