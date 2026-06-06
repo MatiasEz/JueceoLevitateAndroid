@@ -585,7 +585,7 @@ class JudgingStore extends ChangeNotifier {
     selectJudge(cleanName);
   }
 
-  String? heroImageNameFor(String judge) {
+  JudgeProfile? judgeProfileFor(String judge) {
     final judgeId = stableRemoteId(judge);
     final judgeKey = normalizedKey(judge);
     final profiles = appData?.judgeProfiles ?? const <JudgeProfile>[];
@@ -593,12 +593,21 @@ class JudgingStore extends ChangeNotifier {
       final matchesProfile = profile.judgeId == judgeId ||
           stableRemoteId(profile.judgeId) == judgeId ||
           normalizedKey(profile.name) == judgeKey;
-      final heroImageName = profile.heroImageName?.trim();
-      if (matchesProfile && heroImageName != null && heroImageName.isNotEmpty) {
-        return heroImageName;
-      }
+      if (matchesProfile) return profile;
     }
     return null;
+  }
+
+  String? heroImageNameFor(String judge) {
+    final heroImageName = judgeProfileFor(judge)?.heroImageName?.trim();
+    return heroImageName == null || heroImageName.isEmpty
+        ? null
+        : heroImageName;
+  }
+
+  String? judgePhotoDataFor(String judge) {
+    final photoData = judgeProfileFor(judge)?.photoData?.trim();
+    return photoData == null || photoData.isEmpty ? null : photoData;
   }
 
   UserRole roleFor(String judge) {

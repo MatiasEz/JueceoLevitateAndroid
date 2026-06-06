@@ -136,12 +136,14 @@ class JudgeProfile {
     required this.name,
     required this.role,
     this.heroImageName,
+    this.photoData,
   });
 
   final String judgeId;
   final String name;
   final UserRole role;
   final String? heroImageName;
+  final String? photoData;
 
   factory JudgeProfile.fromJson(Map<String, dynamic> json) {
     final rawRole = json['role'] as String? ?? '';
@@ -156,6 +158,7 @@ class JudgeProfile {
           : UserRole.judge,
       heroImageName: json['hero_image_name'] as String? ??
           json['heroImageName'] as String?,
+      photoData: json['photo_data'] as String? ?? json['photoData'] as String?,
     );
   }
 }
@@ -332,7 +335,12 @@ class ObligatoryChecklist {
 
   String get id => '${normalizedKey(apparatus)}::${normalizedKey(level)}';
 
-  String get title => 'Obligatorios $apparatus';
+  String get title {
+    final cleanApparatus = apparatus.trim();
+    return cleanApparatus.isEmpty
+        ? 'Obligatorios'
+        : 'Obligatorios $cleanApparatus';
+  }
 
   double score({required int checkedCount, required double maxScore}) {
     if (maxScore <= 0) return 0;
@@ -376,8 +384,11 @@ class ObligatoryChecklist {
     Criterion? criterion,
   }) {
     if (criterion != null && !isObligatoryCriterion(criterion)) return null;
+    final isObligatoryCriterionScope = criterion != null;
     final apparatus = _apparatusForGenre(routine.genre);
-    if (apparatus == null) return null;
+    if (apparatus == null) {
+      return isObligatoryCriterionScope ? _defaultCompletedChecklist() : null;
+    }
 
     final divisionKey = normalizedKey(routine.division);
     if (_autoCompletedDivisions.contains(divisionKey)) {
@@ -412,6 +423,15 @@ class ObligatoryChecklist {
     'BABY',
     'LEGACY',
   };
+
+  static ObligatoryChecklist _defaultCompletedChecklist() {
+    return const ObligatoryChecklist(
+      apparatus: '',
+      level: 'Automático',
+      items: [],
+      isAutoCompleted: true,
+    );
+  }
 
   static ObligatoryChecklist _autoCompletedChecklist({
     required String apparatus,

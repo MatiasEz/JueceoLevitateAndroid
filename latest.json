@@ -1,7 +1,7 @@
 {
-  "versionCode": 15,
-  "versionName": "0.1.14",
+  "versionCode": 16,
+  "versionName": "0.1.15",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Agrega checklist de obligatorios TELA/ARO en la hoja de juez Levitate y usa la planilla de Danza Aérea para aparatos aéreos."
+  "notes": "Usa la foto de jueces guardada en la BD y autocompleta obligatorios al máximo para coreografías no TELA/ARO."
 }

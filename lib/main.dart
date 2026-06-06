@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -83,6 +84,21 @@ String? judgeHeroAssetFromName(String? heroImageName) {
   }
 
   return null;
+}
+
+Uint8List? judgePhotoBytesFromData(String? photoData) {
+  var cleanData = photoData?.trim();
+  if (cleanData == null || cleanData.isEmpty) return null;
+  final commaIndex = cleanData.indexOf(',');
+  if (cleanData.toLowerCase().startsWith('data:image') && commaIndex >= 0) {
+    cleanData = cleanData.substring(commaIndex + 1);
+  }
+  cleanData = cleanData.replaceAll(RegExp(r'\s+'), '');
+  try {
+    return base64Decode(cleanData);
+  } catch (_) {
+    return null;
+  }
 }
 
 ThemeData levitateTheme(Brightness brightness) {
@@ -1307,6 +1323,7 @@ class HomePage extends StatelessWidget {
         DashboardHeroHeader(
           judge: store.scoringJudge,
           heroImageName: store.heroImageNameFor(store.scoringJudge),
+          photoData: store.judgePhotoDataFor(store.scoringJudge),
           height: 270,
           horizontalPadding: 28,
           compact: false,
@@ -1420,6 +1437,7 @@ class DashboardHeroHeader extends StatelessWidget {
     super.key,
     required this.judge,
     this.heroImageName,
+    this.photoData,
     required this.height,
     required this.horizontalPadding,
     required this.compact,
@@ -1427,6 +1445,7 @@ class DashboardHeroHeader extends StatelessWidget {
 
   final String judge;
   final String? heroImageName;
+  final String? photoData;
   final double height;
   final double horizontalPadding;
   final bool compact;
@@ -1440,6 +1459,7 @@ class DashboardHeroHeader extends StatelessWidget {
       judge,
       configuredHeroImageName: heroImageName,
     );
+    final photoBytes = judgePhotoBytesFromData(photoData);
     final displayJudge = judge.isEmpty ? 'JUEZ' : judge;
 
     return Semantics(
@@ -1457,13 +1477,30 @@ class DashboardHeroHeader extends StatelessWidget {
                 widthFactor: compact ? 1 : 0.72,
                 heightFactor: 1,
                 alignment: Alignment.centerRight,
-                child: Image.asset(
-                  asset,
-                  key: ValueKey('hero-$asset'),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.centerRight,
-                  filterQuality: FilterQuality.high,
-                ),
+                child: photoBytes != null
+                    ? Image.memory(
+                        photoBytes,
+                        key: ValueKey(
+                          'hero-photo-${stableRemoteId(judge)}-${photoBytes.length}',
+                        ),
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomRight,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          asset,
+                          key: ValueKey('hero-$asset-fallback'),
+                          fit: BoxFit.cover,
+                          alignment: Alignment.centerRight,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      )
+                    : Image.asset(
+                        asset,
+                        key: ValueKey('hero-$asset'),
+                        fit: BoxFit.cover,
+                        alignment: Alignment.centerRight,
+                        filterQuality: FilterQuality.high,
+                      ),
               ),
             ),
             DecoratedBox(
@@ -1547,12 +1584,14 @@ class DashboardJudgeImage extends StatelessWidget {
     super.key,
     required this.judge,
     this.heroImageName,
+    this.photoData,
     this.width = 330,
     this.height = 174,
   });
 
   final String judge;
   final String? heroImageName;
+  final String? photoData;
   final double width;
   final double height;
 
@@ -1565,6 +1604,7 @@ class DashboardJudgeImage extends StatelessWidget {
       judge,
       configuredHeroImageName: heroImageName,
     );
+    final photoBytes = judgePhotoBytesFromData(photoData);
 
     return Semantics(
       label: 'Imagen de Levitate para $judge',
@@ -1577,13 +1617,31 @@ class DashboardJudgeImage extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                asset,
-                key: ValueKey(asset),
-                fit: BoxFit.cover,
-                alignment: Alignment.centerRight,
-                filterQuality: FilterQuality.high,
-              ),
+              if (photoBytes != null)
+                Image.memory(
+                  photoBytes,
+                  key: ValueKey(
+                    'judge-photo-${stableRemoteId(judge)}-${photoBytes.length}',
+                  ),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    asset,
+                    key: ValueKey('$asset-fallback'),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.centerRight,
+                    filterQuality: FilterQuality.high,
+                  ),
+                )
+              else
+                Image.asset(
+                  asset,
+                  key: ValueKey(asset),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  filterQuality: FilterQuality.high,
+                ),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -2103,6 +2161,7 @@ class PhoneHomePage extends StatelessWidget {
         DashboardHeroHeader(
           judge: store.scoringJudge,
           heroImageName: store.heroImageNameFor(store.scoringJudge),
+          photoData: store.judgePhotoDataFor(store.scoringJudge),
           height: 210,
           horizontalPadding: 16,
           compact: true,
