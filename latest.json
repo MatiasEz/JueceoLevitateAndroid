@@ -1,7 +1,7 @@
 {
-  "versionCode": 16,
-  "versionName": "0.1.15",
+  "versionCode": 17,
+  "versionName": "0.1.16",
   "apkUrl": "https://github.com/MatiasEz/JueceoLevitateAndroid/releases/latest/download/jueceo.apk",
   "required": false,
-  "notes": "Usa la foto de jueces guardada en la BD y autocompleta obligatorios al máximo para coreografías no TELA/ARO."
+  "notes": "Agrega diagnóstico de sincronización con reintento manual, desglose de pendientes, evento, juez, device ID y último error."
 }

@@ -71,12 +71,19 @@ class JudgingStore extends ChangeNotifier {
   bool _syncInProgress = false;
   bool _syncRequested = false;
   String _deviceID = 'android-tablet';
+  DateTime? lastSyncAt;
+  DateTime? lastSyncAttemptAt;
 
+  String get deviceId => _deviceID;
+  int get pendingScoresCount => pendingScoreKeys.length;
+  int get pendingFeedbackCount => pendingFeedbackKeys.length;
+  int get pendingPenaltiesCount => pendingPenaltyKeys.length;
+  int get pendingFavoritesCount => pendingFavoriteKeys.length;
   int get pendingCount =>
-      pendingScoreKeys.length +
-      pendingFeedbackKeys.length +
-      pendingPenaltyKeys.length +
-      pendingFavoriteKeys.length;
+      pendingScoresCount +
+      pendingFeedbackCount +
+      pendingPenaltiesCount +
+      pendingFavoritesCount;
   List<Routine> get routines => appData?.routines ?? const [];
   List<DanceBlock> get blocks => appData?.blocks ?? const [];
   List<String> get judges {
@@ -845,6 +852,7 @@ class JudgingStore extends ChangeNotifier {
   }
 
   Future<void> _syncPendingOnce() async {
+    lastSyncAttemptAt = DateTime.now();
     if (!api.isConfigured || selectedEvent == null) {
       syncState = api.isConfigured ? SyncState.pending : SyncState.localOnly;
       notifyListeners();
@@ -853,6 +861,7 @@ class JudgingStore extends ChangeNotifier {
     if (pendingCount == 0) {
       syncState = SyncState.online;
       syncMessage = 'Datos sincronizados.';
+      lastSyncAt = DateTime.now();
       notifyListeners();
       return;
     }
@@ -993,6 +1002,7 @@ class JudgingStore extends ChangeNotifier {
       await _persistAll();
       syncState = SyncState.online;
       syncMessage = 'Datos sincronizados.';
+      lastSyncAt = DateTime.now();
     } catch (error) {
       syncState = SyncState.pending;
       syncMessage = '$error';

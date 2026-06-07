@@ -849,13 +849,244 @@ class SyncChip extends StatelessWidget {
     final label = store.pendingCount > 0
         ? '${syncStateLabel(store.syncState)} · ${store.pendingCount}'
         : syncStateLabel(store.syncState);
-    return Chip(
+    return ActionChip(
       avatar: Icon(Icons.cloud_queue, color: color, size: 18),
       label: Text(label),
       side: BorderSide(color: color.withValues(alpha: 0.35)),
       backgroundColor: color.withValues(alpha: 0.10),
+      tooltip: 'Ver sincronización',
+      onPressed: () => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (_) => SyncDiagnosticsSheet(store: store),
+      ),
     );
   }
+}
+
+class SyncDiagnosticsSheet extends StatefulWidget {
+  const SyncDiagnosticsSheet({super.key, required this.store});
+
+  final JudgingStore store;
+
+  @override
+  State<SyncDiagnosticsSheet> createState() => _SyncDiagnosticsSheetState();
+}
+
+class _SyncDiagnosticsSheetState extends State<SyncDiagnosticsSheet> {
+  bool isRetrying = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.store,
+      builder: (context, _) {
+        final store = widget.store;
+        final color = syncStateColor(store.syncState);
+        final retryLabel = store.pendingCount > 0
+            ? 'Reintentar sincronización'
+            : 'Probar sincronización';
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.cloud_queue, color: color),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Sincronización',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SyncDiagnosticRow(
+                  label: 'Estado',
+                  value: syncStateLabel(store.syncState),
+                  valueColor: color,
+                ),
+                SyncDiagnosticRow(
+                  label: 'Última sync',
+                  value: relativeSyncTime(store.lastSyncAt),
+                ),
+                SyncDiagnosticRow(
+                  label: 'Último intento',
+                  value: relativeSyncTime(store.lastSyncAttemptAt),
+                ),
+                SyncDiagnosticRow(
+                  label: 'Evento',
+                  value: store.selectedEvent?.name ??
+                      store.appData?.sourceName ??
+                      'Sin evento',
+                ),
+                SyncDiagnosticRow(label: 'Juez', value: store.scoringJudge),
+                SyncDiagnosticRow(label: 'Device ID', value: store.deviceId),
+                const SizedBox(height: 10),
+                Text('Pendientes',
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    SyncPendingChip(
+                        label: 'Puntajes', value: store.pendingScoresCount),
+                    SyncPendingChip(
+                        label: 'Feedback', value: store.pendingFeedbackCount),
+                    SyncPendingChip(
+                        label: 'Penalizaciones',
+                        value: store.pendingPenaltiesCount),
+                    SyncPendingChip(
+                        label: 'Favoritos', value: store.pendingFavoritesCount),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SyncMessagePanel(message: store.syncMessage),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: isRetrying ? null : _retrySync,
+                    icon: isRetrying
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync),
+                    label: Text(isRetrying ? 'Sincronizando...' : retryLabel),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _retrySync() async {
+    setState(() => isRetrying = true);
+    await widget.store.syncPending();
+    if (!mounted) return;
+    setState(() => isRetrying = false);
+    final synced = widget.store.syncState == SyncState.online &&
+        widget.store.pendingCount == 0;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(synced
+          ? 'Datos sincronizados.'
+          : 'No se pudo completar la sincronización. Revisa el detalle.'),
+    ));
+  }
+}
+
+class SyncDiagnosticRow extends StatelessWidget {
+  const SyncDiagnosticRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 108,
+            child: Text(label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.outline, fontWeight: FontWeight.w800)),
+          ),
+          Expanded(
+            child: Text(value.isEmpty ? '-' : value,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: valueColor, fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SyncPendingChip extends StatelessWidget {
+  const SyncPendingChip({super.key, required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = value > 0 ? Colors.orange : Colors.green;
+    return Chip(
+      label: Text('$label · $value'),
+      side: BorderSide(color: color.withValues(alpha: 0.32)),
+      backgroundColor: color.withValues(alpha: 0.10),
+      labelStyle: TextStyle(
+        color: value > 0 ? color : colorScheme.onSurface,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class SyncMessagePanel extends StatelessWidget {
+  const SyncMessagePanel({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final text = message.trim().isEmpty ? 'Sin mensaje.' : message.trim();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+}
+
+Color syncStateColor(SyncState state) {
+  return switch (state) {
+    SyncState.online => Colors.green,
+    SyncState.connecting || SyncState.syncing => Colors.blue,
+    SyncState.pending => Colors.orange,
+    SyncState.offline => Colors.red,
+    SyncState.localOnly => Colors.grey,
+  };
 }
 
 String syncStateLabel(SyncState state) {
@@ -867,6 +1098,22 @@ String syncStateLabel(SyncState state) {
     SyncState.pending => 'Pendiente',
     SyncState.offline => 'Sin conexión',
   };
+}
+
+String relativeSyncTime(DateTime? value) {
+  if (value == null) return 'Sin registro';
+  final now = DateTime.now();
+  final localValue = value.toLocal();
+  final difference = now.difference(localValue);
+  if (difference.isNegative || difference.inSeconds < 5) return 'recién';
+  if (difference.inMinutes < 1) return 'hace ${difference.inSeconds} seg';
+  if (difference.inHours < 1) return 'hace ${difference.inMinutes} min';
+  if (difference.inDays < 1) return 'hace ${difference.inHours} h';
+  final day = localValue.day.toString().padLeft(2, '0');
+  final month = localValue.month.toString().padLeft(2, '0');
+  final hour = localValue.hour.toString().padLeft(2, '0');
+  final minute = localValue.minute.toString().padLeft(2, '0');
+  return '$day/$month $hour:$minute';
 }
 
 class EventSelectorButton extends StatelessWidget {
