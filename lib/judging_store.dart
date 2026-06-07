@@ -73,8 +73,12 @@ class JudgingStore extends ChangeNotifier {
   String _deviceID = 'android-tablet';
   DateTime? lastSyncAt;
   DateTime? lastSyncAttemptAt;
+  int _syncFailureSerial = 0;
+  String _syncFailureMessage = '';
 
   String get deviceId => _deviceID;
+  int get syncFailureSerial => _syncFailureSerial;
+  String get syncFailureMessage => _syncFailureMessage;
   int get pendingScoresCount => pendingScoreKeys.length;
   int get pendingFeedbackCount => pendingFeedbackKeys.length;
   int get pendingPenaltiesCount => pendingPenaltyKeys.length;
@@ -356,7 +360,7 @@ class JudgingStore extends ChangeNotifier {
       await selectEvent(selectedEvent!);
     } catch (error) {
       syncState = pendingCount > 0 ? SyncState.pending : SyncState.offline;
-      syncMessage = '$error';
+      _markSyncFailure(error);
       notifyListeners();
     }
   }
@@ -379,9 +383,7 @@ class JudgingStore extends ChangeNotifier {
         event.id: bundle.appData.blocks,
       };
       _normalizeCurrentSelection();
-      final judgeById = {
-        for (final judge in judges) stableRemoteId(judge): judge
-      };
+      final judgeById = _judgeNamesByRemoteId();
       _pruneSyncedInMemoryCache();
       var appliedScores = 0;
       var skippedPendingScores = 0;
@@ -461,7 +463,7 @@ class JudgingStore extends ChangeNotifier {
           'selectEvent finished pending=$pendingCount elapsed=${watch.elapsedMilliseconds}ms');
     } catch (error) {
       syncState = pendingCount > 0 ? SyncState.pending : SyncState.offline;
-      syncMessage = '$error';
+      _markSyncFailure(error);
       _loadLog(
           'selectEvent failed elapsed=${watch.elapsedMilliseconds}ms error=$error');
       notifyListeners();
@@ -597,12 +599,27 @@ class JudgingStore extends ChangeNotifier {
     final judgeKey = normalizedKey(judge);
     final profiles = appData?.judgeProfiles ?? const <JudgeProfile>[];
     for (final profile in profiles) {
-      final matchesProfile = profile.judgeId == judgeId ||
-          stableRemoteId(profile.judgeId) == judgeId ||
+      final profileJudgeId = profile.judgeId.trim();
+      final matchesProfile = profileJudgeId == judgeId ||
+          stableRemoteId(profileJudgeId) == judgeId ||
           normalizedKey(profile.name) == judgeKey;
       if (matchesProfile) return profile;
     }
     return null;
+  }
+
+  String _remoteJudgeIdFor(String judge) {
+    final directProfileId = judgeProfileFor(judge)?.judgeId.trim();
+    if (directProfileId != null && directProfileId.isNotEmpty) {
+      return directProfileId;
+    }
+    final judgeName = _judgeNameForKey(judge);
+    final resolvedProfileId =
+        judgeName == null ? null : judgeProfileFor(judgeName)?.judgeId.trim();
+    if (resolvedProfileId != null && resolvedProfileId.isNotEmpty) {
+      return resolvedProfileId;
+    }
+    return stableRemoteId(judge);
   }
 
   String? heroImageNameFor(String judge) {
@@ -717,7 +734,7 @@ class JudgingStore extends ChangeNotifier {
     try {
       await api.upsertJudgeActivity({
         'event_id': event.id,
-        'judge_id': stableRemoteId(selectedJudge),
+        'judge_id': _remoteJudgeIdFor(selectedJudge),
         'device_id': _deviceID,
         'state': state,
         'block_id': routine == null ? null : _blockIdForRoutine(routine.id),
@@ -885,7 +902,7 @@ class JudgingStore extends ChangeNotifier {
           'event_id': eventID,
           'block_id': _blockIdForRoutine(routineId),
           'routine_id': routineId,
-          'judge_id': stableRemoteId(parts[1]),
+          'judge_id': _remoteJudgeIdFor(parts[1]),
           'criterion_id': int.tryParse(parts[2]) ?? 0,
           'value': value,
           'device_id': _deviceID,
@@ -914,7 +931,7 @@ class JudgingStore extends ChangeNotifier {
           'event_id': eventID,
           'block_id': _blockIdForRoutine(routineId),
           'routine_id': routineId,
-          'judge_id': stableRemoteId(parts[1]),
+          'judge_id': _remoteJudgeIdFor(parts[1]),
           'body': body,
           'device_id': _deviceID,
         });
@@ -942,7 +959,7 @@ class JudgingStore extends ChangeNotifier {
           'event_id': eventID,
           'block_id': _blockIdForRoutine(routineId),
           'routine_id': routineId,
-          'judge_id': stableRemoteId(parts[1]),
+          'judge_id': _remoteJudgeIdFor(parts[1]),
           'value': value,
           'device_id': _deviceID,
         });
@@ -978,7 +995,7 @@ class JudgingStore extends ChangeNotifier {
             'event_id': parsed.eventId,
             'block_id': parsed.blockId,
             if (parsed.routineId != null) 'routine_id': parsed.routineId,
-            'judge_id': stableRemoteId(judgeName),
+            'judge_id': _remoteJudgeIdFor(judgeName),
             'category': parsed.category.id,
           });
         } else {
@@ -986,7 +1003,7 @@ class JudgingStore extends ChangeNotifier {
             'event_id': parsed.eventId,
             'block_id': parsed.blockId,
             'routine_id': selectedRoutine,
-            'judge_id': stableRemoteId(judgeName),
+            'judge_id': _remoteJudgeIdFor(judgeName),
             'category': parsed.category.id,
             'device_id': _deviceID,
           });
@@ -1005,7 +1022,7 @@ class JudgingStore extends ChangeNotifier {
       lastSyncAt = DateTime.now();
     } catch (error) {
       syncState = SyncState.pending;
-      syncMessage = '$error';
+      _markSyncFailure(error);
     }
     notifyListeners();
   }
@@ -1274,6 +1291,13 @@ class JudgingStore extends ChangeNotifier {
   }
 
   String? _judgeNameForKey(String judgeKey) {
+    final judgeById = _judgeNamesByRemoteId();
+    final exactMatch = judgeById[judgeKey];
+    if (exactMatch != null) return exactMatch;
+    final stableMatch = judgeById[stableRemoteId(judgeKey)];
+    if (stableMatch != null) return stableMatch;
+    final normalizedMatch = judgeById[normalizedKey(judgeKey)];
+    if (normalizedMatch != null) return normalizedMatch;
     for (final judge in judges) {
       if (normalizedKey(judge) == judgeKey ||
           stableRemoteId(judge) == judgeKey) {
@@ -1281,6 +1305,26 @@ class JudgingStore extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  Map<String, String> _judgeNamesByRemoteId() {
+    final judgeById = <String, String>{};
+    void addAlias(String alias, String judge) {
+      final cleanAlias = alias.trim();
+      if (cleanAlias.isEmpty) return;
+      judgeById[cleanAlias] = judge;
+      judgeById[stableRemoteId(cleanAlias)] = judge;
+      judgeById[normalizedKey(cleanAlias)] = judge;
+    }
+
+    for (final judge in judges) {
+      addAlias(judge, judge);
+      final profile = judgeProfileFor(judge);
+      if (profile == null) continue;
+      addAlias(profile.judgeId, judge);
+      addAlias(profile.name, judge);
+    }
+    return judgeById;
   }
 
   String _blockNameFor(String blockId) {
@@ -1334,6 +1378,14 @@ class JudgingStore extends ChangeNotifier {
 
   String _createDeviceID() {
     return 'android-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  void _markSyncFailure(Object error) {
+    final message = '$error'.trim();
+    syncMessage =
+        message.isEmpty ? 'No se pudo completar la sincronización.' : message;
+    _syncFailureMessage = syncMessage;
+    _syncFailureSerial += 1;
   }
 
   Map<String, double> _decodeDoubleMap(String raw) {

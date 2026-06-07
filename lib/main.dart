@@ -281,13 +281,135 @@ class JueceoTabletApp extends StatelessWidget {
       theme: levitateTheme(Brightness.light),
       darkTheme: levitateTheme(Brightness.dark),
       home: AppUpdateGate(
-        child: AnimatedBuilder(
-          animation: store,
-          builder: (context, _) => AdaptiveShell(store: store),
+        child: SyncFailureDialogHost(
+          store: store,
+          child: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) => AdaptiveShell(store: store),
+          ),
         ),
       ),
     );
   }
+}
+
+class SyncFailureDialogHost extends StatefulWidget {
+  const SyncFailureDialogHost({
+    super.key,
+    required this.store,
+    required this.child,
+  });
+
+  final JudgingStore store;
+  final Widget child;
+
+  @override
+  State<SyncFailureDialogHost> createState() => _SyncFailureDialogHostState();
+}
+
+class _SyncFailureDialogHostState extends State<SyncFailureDialogHost> {
+  int _lastShownFailureSerial = 0;
+  bool _dialogShowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_showFailureIfNeeded);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showFailureIfNeeded();
+    });
+  }
+
+  @override
+  void didUpdateWidget(SyncFailureDialogHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.store == widget.store) return;
+    oldWidget.store.removeListener(_showFailureIfNeeded);
+    widget.store.addListener(_showFailureIfNeeded);
+    _lastShownFailureSerial = 0;
+    _showFailureIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_showFailureIfNeeded);
+    super.dispose();
+  }
+
+  void _showFailureIfNeeded() {
+    if (!mounted || _dialogShowing) return;
+    final serial = widget.store.syncFailureSerial;
+    if (serial <= _lastShownFailureSerial) return;
+    final message = widget.store.syncFailureMessage.trim().isNotEmpty
+        ? widget.store.syncFailureMessage.trim()
+        : widget.store.syncMessage.trim();
+    if (message.isEmpty) {
+      _lastShownFailureSerial = serial;
+      return;
+    }
+    _lastShownFailureSerial = serial;
+    _dialogShowing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_showSyncFailureDialog(message));
+    });
+  }
+
+  Future<void> _showSyncFailureDialog(String message) async {
+    if (!mounted) {
+      _dialogShowing = false;
+      return;
+    }
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Falló la sincronización'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Los datos quedan pendientes en esta tablet hasta que se puedan sincronizar.',
+                ),
+                const SizedBox(height: 12),
+                SelectableText(message),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('dismiss'),
+              child: const Text('Cerrar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop('retry'),
+              icon: const Icon(Icons.sync),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        );
+      },
+    );
+    _dialogShowing = false;
+    if (!mounted) return;
+    if (action == 'retry') {
+      await _retrySyncAfterFailure();
+    }
+    _showFailureIfNeeded();
+  }
+
+  Future<void> _retrySyncAfterFailure() async {
+    if (widget.store.syncState == SyncState.offline ||
+        widget.store.selectedEvent == null) {
+      await widget.store.refreshEvents();
+      return;
+    }
+    await widget.store.syncPending();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class AppUpdateGate extends StatefulWidget {
